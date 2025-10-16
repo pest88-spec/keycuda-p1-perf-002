@@ -1,0 +1,12 @@
+Running main() from /mnt/d/mybitcoin/puzzlekeyhunt/PuzzleKeyhunt/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = Hash160ParityTest.GpuMatchesCpuForSampledKeys
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Hash160ParityTest
+[ RUN      ] Hash160ParityTest.GpuMatchesCpuForSampledKeys
+[       OK ] Hash160ParityTest.GpuMatchesCpuForSampledKeys (390 ms)
+[----------] 1 test from Hash160ParityTest (390 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (390 ms total)
+[  PASSED  ] 1 test.
