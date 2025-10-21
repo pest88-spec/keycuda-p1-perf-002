@@ -1,0 +1,118 @@
+# Puzzle71 CUDA Technical Debt Repair System
+# Docker Compose configuration for CI/CD environment
+version: '3.8'
+
+services:
+  # Build service for compilation and testing
+  ci-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: puzzle71-ci-builder:latest
+    container_name: puzzle71-ci-builder
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - OMP_NUM_THREADS=4
+    volumes:
+      - ./build:/build
+      - ./test_results:/app/test_results
+      - ./benchmark_results:/app/benchmark_results
+    networks:
+      - puzzle71-network
+    working_dir: /build
+    command: >
+      bash -c "
+        ctest --output-on-failure --verbose --output-junit test_results.xml &&
+        make benchmark &&
+        ./Puzzle71Solver --benchmark --benchmark-format=json --benchmark-out=/app/benchmark_results/benchmark_results.json
+      "
+
+  # Production service for deployment testing
+  production-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: puzzle71:latest
+    container_name: puzzle71-production-test
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - ./data:/app/data:ro
+      - ./logs:/app/logs
+      - ./telemetry:/app/telemetry
+    networks:
+      - puzzle71-network
+    working_dir: /app
+    command: ["--version"]
+    depends_on:
+      - ci-builder
+
+  # Performance monitoring service
+  perf-monitor:
+    image: nvidia/cuda:11.8-runtime-ubuntu20.04
+    container_name: puzzle71-perf-monitor
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./scripts:/app/scripts:ro
+      - ./logs:/app/logs
+    networks:
+      - puzzle71-network
+    command: >
+      bash -c "
+        apt-get update -qq &&
+        apt-get install -y python3 python3-pip &&
+        pip3 install nvidia-ml-py3 psutil &&
+        python3 /app/scripts/monitor_gpu.py --interval=5 --output=/app/logs/gpu_monitor.log
+      "
+    depends_on:
+      - production-test
+
+  # Test data service for integration testing
+  test-data:
+    image: alpine:latest
+    container_name: puzzle71-test-data
+    volumes:
+      - ./data/test:/app/data:ro
+      - ./test_data:/app/test_data:ro
+    networks:
+      - puzzle71-network
+    command: >
+      sh -c "
+        echo 'Test data service ready' &&
+        ls -la /app/data &&
+        ls -la /app/test_data
+      "
+
+networks:
+  puzzle71-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  build_data:
+    driver: local
+  test_results:
+    driver: local
+  benchmark_results:
+    driver: local
+
+# Health checks and monitoring
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+x-deployment-defaults: &deployment-defaults
+  restart: unless-stopped
+  resources:
+    limits:
+      memory: 8G
+    reservations:
+      memory: 4G

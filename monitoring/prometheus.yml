@@ -1,0 +1,136 @@
+# Puzzle71 Technical Debt Repair - Prometheus Configuration
+# T080: Create deployment scripts and Docker production images
+# Production monitoring configuration for Puzzle71 solver
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'puzzle71-production'
+    replica: 'prometheus-1'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+          - localhost:9093
+
+# Rule files
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+  - "alert_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+    honor_labels: true
+
+  # Puzzle71 Solver Metrics
+  - job_name: 'puzzle71-solver'
+    static_configs:
+      - targets: ['puzzle71-solver:8080']
+    scrape_interval: 5s
+    scrape_timeout: 10s
+    metrics_path: '/metrics'
+    honor_labels: true
+    params:
+      format: ['prometheus']
+
+    # Relabel configurations for Puzzle71 metrics
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'puzzle71-solver'
+
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+        regex: 'puzzle71-solver-.*'
+
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+        regex: 'puzzle71-production'
+
+    # Metric dropping for sensitive data
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'puzzle71_.*_(private_key|seed|password)'
+        action: drop
+
+  # Redis Metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+    honor_labels: true
+
+  # Node Exporter Metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+    honor_labels: true
+
+  # cAdvisor Container Metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+    honor_labels: true
+
+    # Relabel container metrics
+    relabel_configs:
+      - source_labels: [__name__]
+        regex: 'container_(network_.*|fs_.*)'
+        action: drop
+
+  # NVIDIA GPU Metrics (if available)
+  - job_name: 'nvidia-dcgm'
+    static_configs:
+      - targets: ['gpu-exporter:9400']
+    scrape_interval: 5s
+    scrape_timeout: 10s
+    metrics_path: '/metrics'
+    honor_labels: true
+
+  # Docker Container Metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['docker-exporter:9323']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+    honor_labels: true
+
+# Remote write configuration (for long-term storage)
+# remote_write:
+#   - url: "http://prometheus-remote-storage:9201/api/v1/write"
+#     queue_config:
+#       max_samples_per_send: 1000
+#       max_shards: 200
+#       capacity: 2500
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true
+
+# Web configuration
+web:
+  enable_admin_api: true
+  page_title: "Puzzle71 Production Monitoring"
+  cors:
+    origins: ['*']
+  external_url: "http://localhost:9090"

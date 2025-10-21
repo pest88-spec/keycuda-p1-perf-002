@@ -2,12 +2,15 @@
 
 #include <array>
 #include <optional>
+#include <random>
 #include <string>
 #include <vector>
 
 #include "config/puzzle71_config.h"
 #include "checkpoint_manifest.h"
+#include "compute/gpu/batch_planner.h"
 #include "core/uint256.h"
+#include "scheduler/range_scheduler.h"
 
 namespace puzzle71 {
 
@@ -28,6 +31,7 @@ struct SolverOptions {
     std::string luck_file{"luck.txt"};
     std::optional<std::string> parity_test_scalar_hex;
     std::vector<int> device_ids;
+    bool use_separated_kernels{false};  // Enable high-performance separated kernel execution
     std::optional<puzzle71::config::ReplayConfig> replay_config;
 };
 

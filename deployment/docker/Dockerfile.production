@@ -1,0 +1,118 @@
+# Puzzle71 Production Docker Image
+# Optimized for high-performance GPU-accelerated Bitcoin private key scanning
+
+# Use NVIDIA CUDA base image
+FROM nvidia/cuda:12.2-devel-ubuntu22.04
+
+# Labels and metadata
+LABEL maintainer="Puzzle71 Development Team <dev@puzzle71.io>"
+LABEL version="2.0.0"
+LABEL description="High-performance GPU-accelerated Bitcoin private key scanner"
+LABEL org.opencontainers.image.title="Puzzle71 Solver"
+LABEL org.opencontainers.image.description="Production-ready Bitcoin puzzle solver with CUDA acceleration"
+LABEL org.opencontainers.image.version="2.0.0"
+LABEL org.opencontainers.image.vendor="Puzzle71 Project"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PUZZLE71_VERSION=2.0.0
+ENV PUZZLE71_HOME=/opt/puzzle71
+ENV PUZZLE71_DATA=/data/puzzle71
+ENV PUZZLE71_LOGS=/logs/puzzle71
+ENV PATH=${PUZZLE71_HOME}/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+
+# Set working directory
+WORKDIR ${PUZZLE71_HOME}
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # Build tools
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    pkg-config \
+    # Security and networking
+    ca-certificates \
+    curl \
+    wget \
+    openssl \
+    libssl-dev \
+    # Performance monitoring
+    htop \
+    iotop \
+    nvidia-smi \
+    # Python for monitoring scripts
+    python3 \
+    python3-pip \
+    # Utilities
+    vim \
+    less \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir \
+    psutil \
+    pynvml \
+    prometheus-client
+
+# Create application user
+RUN groupadd -r puzzle71 && \
+    useradd -r -g puzzle71 -d ${PUZZLE71_HOME} -s /bin/bash puzzle71
+
+# Create directory structure
+RUN mkdir -p ${PUZZLE71_HOME}/{bin,lib,config,scripts,monitoring} && \
+    mkdir -p ${PUZZLE71_DATA} && \
+    mkdir -p ${PUZZLE71_LOGS} && \
+    mkdir -p ${PUZZLE71_HOME}/monitoring/{metrics,alerts,health} && \
+    chown -R puzzle71:puzzle71 ${PUZZLE71_HOME} && \
+    chown -R puzzle71:puzzle71 ${PUZZLE71_DATA} && \
+    chown -R puzzle71:puzzle71 ${PUZZLE71_LOGS}
+
+# Install libsecp256k1
+RUN cd /tmp && \
+    git clone --depth 1 --branch v0.3.2 https://github.com/bitcoin-core/secp256k1.git && \
+    cd secp256k1 && \
+    ./autogen.sh && \
+    ./configure --enable-module-recovery --enable-experimental --disable-tests --disable-benchmark --disable-shared && \
+    make -j$(nproc) && \
+    make install && \
+    cd / && \
+    rm -rf /tmp/secp256k1
+
+# Copy application files (these will be added during build)
+# COPY --chown=puzzle71:puzzle71 bin/Puzzle71Solver ${PUZZLE71_HOME}/bin/
+# COPY --chown=puzzle71:puzzle71 config/ ${PUZZLE71_HOME}/config/
+# COPY --chown=puzzle71:puzzle71 scripts/ ${PUZZLE71_HOME}/scripts/
+# COPY --chown=puzzle71:puzzle71 monitoring/ ${PUZZLE71_HOME}/monitoring/
+
+# Copy production configuration template
+COPY deployment/docker/config/production.json.template ${PUZZLE71_HOME}/config/production.json.template
+COPY deployment/docker/config/docker-entrypoint.sh ${PUZZLE71_HOME}/scripts/docker-entrypoint.sh
+
+# Set permissions
+RUN chmod +x ${PUZZLE71_HOME}/scripts/docker-entrypoint.sh && \
+    chown -R puzzle71:puzzle71 ${PUZZLE71_HOME}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD python3 ${PUZZLE71_HOME}/monitoring/health_check.py || exit 1
+
+# Expose ports (if needed for monitoring/API)
+EXPOSE 8080
+
+# Volume mounts
+VOLUME ${PUZZLE71_DATA}
+VOLUME ${PUZZLE71_LOGS}
+
+# Switch to application user
+USER puzzle71
+
+# Default entrypoint
+ENTRYPOINT ["/opt/puzzle71/scripts/docker-entrypoint.sh"]
+
+# Default command
+CMD ["--config", "/opt/puzzle71/config/production.json", "--daemon"]

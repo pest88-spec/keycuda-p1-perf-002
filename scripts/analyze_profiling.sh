@@ -1,16 +1,20 @@
 #!/bin/bash
 
-# Nsight Compute Profiling Automation Script
-# Part of T042: Create Nsight Compute profiling automation script
+# NVIDIA Nsight Compute Profiling Analysis Script
+# Part of T004: Setup NVIDIA Nsight Compute integration for profiling
 #
-# Usage: ./analyze_profiling.sh <gpu_device> <kernel_name> [executable] [output_dir]
-# Example: ./analyze_profiling.sh 0 eccScalarMulKernel ./build/Puzzle71Solver ./profiling
+# Usage: ./analyze_profiling.sh [OPTIONS] KERNEL_NAME GPU_ID ITERATIONS
+# Examples:
+#   ./analyze_profiling.sh eccScalarMulKernel 0 100
+#   ./analyze_profiling.sh -k hashKernel -d 1 -i 200 -o my_results
+#   ./analyze_profiling.sh --all-kernels --iterations 50
 #
-# This script automates Nsight Compute profiling for CUDA kernels with:
-# - Custom profiling sections (SpeedOfLight, MemoryWorkloadAnalysis, Occupancy)
+# This script automates NVIDIA Nsight Compute profiling for Puzzle71 with:
+# - Constitutional compliance validation (memory efficiency ≥90%, GPU utilization ≥70%)
 # - Automatic metric extraction and threshold validation
-# - CI integration support with exit code 1 for metric failures
-# - Report archiving with timestamped filenames
+# - CI integration support with exit code for metric failures
+# - Detailed performance reports and recommendations
+# - Support for multiple kernels and GPU architectures
 
 set -euo pipefail
 

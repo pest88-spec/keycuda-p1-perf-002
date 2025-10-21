@@ -1,0 +1,730 @@
+# Puzzle71 Enhanced Production Docker Compose Configuration v2.0
+# Complete production deployment with monitoring, security, and performance optimization
+
+version: '3.8'
+
+# Network configuration
+networks:
+  puzzle71-network:
+    driver: bridge
+    internal: false
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+# Volume definitions
+volumes:
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/data/redis
+  prometheus-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/monitoring/prometheus
+  grafana-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/monitoring/grafana
+  elasticsearch-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/monitoring/elasticsearch
+  puzzle71-results:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/results
+  puzzle71-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/logs
+  puzzle71-cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/cache
+
+services:
+  # =====================================================================
+  # MAIN APPLICATION: Puzzle71 CUDA Solver
+  # =====================================================================
+  puzzle71-solver:
+    image: puzzle71/puzzle71-solver:2.0.0
+    container_name: puzzle71-solver
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+      - seccomp:default
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /var/tmp:noexec,nosuid,size=100m
+
+    # User configuration
+    user: "1000:1000"
+
+    # Environment configuration
+    environment:
+      - TZ=UTC
+      - PUZZLE71_ENV=production
+      - LOG_LEVEL=INFO
+      - CUDA_VISIBLE_DEVICES=0
+      - GPU_UTILIZATION_TARGET=95
+      - MEMORY_EFFICIENCY_TARGET=90
+      - METRICS_ENABLED=true
+      - METRICS_PORT=8080
+      - REDIS_URL=redis://redis:6379
+      - PROMETHEUS_GATEWAY_URL=http://prometheus-pushgateway:9091
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+
+    # Resource limits and reservations
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+          cpus: '8'
+          pids: 100
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, utility, compute]
+
+    # Volume mounts
+    volumes:
+      - ./config:/opt/puzzle71/config:ro
+      - ./data:/opt/puzzle71/data:ro
+      - puzzle71-results:/opt/puzzle71/results:rw
+      - puzzle71-logs:/opt/puzzle71/logs:rw
+      - puzzle71-cache:/opt/puzzle71/cache:rw
+      - ./monitoring/grafana/provisioning:/opt/puzzle71/monitoring:ro
+
+    # Port exposure
+    ports:
+      - "8080:8080"     # Metrics and monitoring
+      - "8081:8081"     # Health check endpoint
+
+    # Health check configuration
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # Command configuration
+    command: >
+      --config /opt/puzzle71/config/production.yaml
+      --keyspace-file /opt/puzzle71/data/private_ranges.txt
+      --target-addresses /opt/puzzle71/data/target_addresses.txt
+      --output /opt/puzzle71/results/puzzle71_results.json
+      --log-file /opt/puzzle71/logs/puzzle71.log
+      --daemon
+      --monitoring-port 8080
+      --health-port 8081
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+        labels: "service=puzzle71-solver,environment=production"
+
+    # Dependencies
+    depends_on:
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=puzzle71-solver"
+      - "environment=production"
+      - "version=2.0.0"
+      - "monitoring=true"
+
+  # =====================================================================
+  # REDIS: Caching and Session Management
+  # =====================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: puzzle71-redis
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    user: "999:999"
+
+    # Environment
+    environment:
+      - TZ=UTC
+      - REDIS_REPLICATION_MODE=master
+      - REDIS_PASSWORD=redis_secure_password_change_me
+
+    # Volume mounts
+    volumes:
+      - redis-data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+
+    # Port exposure
+    ports:
+      - "6379:6379"
+
+    # Command
+    command: redis-server /usr/local/etc/redis/redis.conf
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=redis"
+      - "environment=production"
+      - "tier=cache"
+
+  # =====================================================================
+  # PROMETHEUS: Metrics Collection and Storage
+  # =====================================================================
+  prometheus:
+    image: prom/prometheus:v2.40.0
+    container_name: puzzle71-prometheus
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    user: "65534:65534"
+
+    # Environment
+    environment:
+      - TZ=UTC
+
+    # Volume mounts
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus_rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+
+    # Port exposure
+    ports:
+      - "9090:9090"
+
+    # Command with optimized configuration
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=50GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--web.external-url=http://localhost:9090'
+      - '--web.max-concurrent-queries=100'
+      - '--query.max-concurrency=20'
+      - '--query.timeout=2m'
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=prometheus"
+      - "environment=production"
+      - "tier=monitoring"
+
+  # =====================================================================
+  # PROMETHEUS PUSHPGATEWAY: Batch Metrics Collection
+  # =====================================================================
+  prometheus-pushgateway:
+    image: prom/pushgateway:v1.4.0
+    container_name: puzzle71-pushgateway
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    # Port exposure
+    ports:
+      - "9091:9091"
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9091/-/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=prometheus-pushgateway"
+      - "environment=production"
+
+  # =====================================================================
+  # GRAFANA: Visualization and Dashboarding
+  # =====================================================================
+  grafana:
+    image: grafana/grafana:9.3.0
+    container_name: puzzle71-grafana
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    user: "472:472"
+
+    # Environment
+    environment:
+      - TZ=UTC
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=puzzle71_admin_password_change_me
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-piechart-panel,natel-discrete-panel
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=strict
+      - GF_SECURITY_CONTENT_TYPE_PROTECTION=true
+      - GF_SECURITY_X_CONTENT_TYPE_OPTIONS=nosniff
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+
+    # Volume mounts
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    # Port exposure
+    ports:
+      - "3000:3000"
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+    # Dependencies
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=grafana"
+      - "environment=production"
+      - "tier=visualization"
+
+  # =====================================================================
+  # NODE EXPORTER: System Metrics Collection
+  # =====================================================================
+  node-exporter:
+    image: prom/node-exporter:v1.5.0
+    container_name: puzzle71-node-exporter
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - SYS_TIME
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--collector.cpu.info'
+      - '--collector.diskstats.ignored-devices=^(ram|loop|fd|(h|s|v)d[a-z]|nvme\\d+n\\d+p)\\d+$$'
+
+    # Volume mounts
+    volumes:
+      - '/:/host:ro,rslave'
+
+    # Port exposure
+    ports:
+      - "9100:9100"
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9100/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=node-exporter"
+      - "environment=production"
+      - "tier=system-metrics"
+
+  # =====================================================================
+  # NVIDIA DCGM EXPORTER: GPU Metrics Collection
+  # =====================================================================
+  nvidia-dcgm-exporter:
+    image: nvidia/dcgm-exporter:3.1.0-3.0.0-ubuntu20.04
+    container_name: puzzle71-nvidia-dcgm-exporter
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN
+    privileged: true
+
+    # Environment
+    environment:
+      - TZ=UTC
+      - DCGM_EXPORTER_LISTEN=9445
+      - DCGM_EXPORTER_INTERVAL=5000
+      - DCGM_EXPORTER_KUBERNETES=true
+
+    # Volume mounts for GPU access
+    volumes:
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ml.so:/usr/lib/x86_64-linux-gnu/libnvidia-ml.so:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:ro
+
+    # Port exposure
+    ports:
+      - "9445:9445"
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9445/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=nvidia-dcgm-exporter"
+      - "environment=production"
+      - "tier=gpu-metrics"
+
+  # =====================================================================
+  # ELASTICSEARCH: Log Storage and Analysis
+  # =====================================================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.6.0
+    container_name: puzzle71-elasticsearch
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+
+    # Environment
+    environment:
+      - TZ=UTC
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - bootstrap.memory_lock=true
+      - indices.memory.index_buffer_size: 20%
+
+    # ulimits
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+
+    # Volume mounts
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+
+    # Port exposure
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=elasticsearch"
+      - "environment=production"
+      - "tier=logging"
+
+  # =====================================================================
+  # KIBANA: Log Visualization
+  # =====================================================================
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.6.0
+    container_name: puzzle71-kibana
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+
+    # Environment
+    environment:
+      - TZ=UTC
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=puzzle71-kibana
+      - SERVER_HOST=0.0.0.0
+
+    # Port exposure
+    ports:
+      - "5601:5601"
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Dependencies
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=kibana"
+      - "environment=production"
+      - "tier=logging-visualization"
+
+  # =====================================================================
+  # CADVISOR: Container Monitoring
+  # =====================================================================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.46.0
+    container_name: puzzle71-cadvisor
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN
+    privileged: true
+
+    # Volume mounts
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
+    # Port exposure
+    ports:
+      - "8080:8080"  # Note: This conflicts with main app, adjust as needed
+
+    # Command
+    command:
+      - '--port=8082'
+      - '--housekeeping_interval=10s'
+      - '--max_housekeeping_interval=1m0s'
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8082/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=cadvisor"
+      - "environment=production"
+      - "tier=container-metrics"
+
+  # =====================================================================
+  # ALERTMANAGER: Alert Management
+  # =====================================================================
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    container_name: puzzle71-alertmanager
+    restart: unless-stopped
+
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    user: "65534:65534"
+
+    # Volume mounts
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./monitoring/alertmanager_data:/alertmanager
+
+    # Port exposure
+    ports:
+      - "9093:9093"
+
+    # Command
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--web.route-prefix=/'
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9093/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Labels
+    labels:
+      - "service=alertmanager"
+      - "environment=production"
+      - "tier=alerting"

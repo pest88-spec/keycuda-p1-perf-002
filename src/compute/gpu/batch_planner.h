@@ -2,6 +2,7 @@
 
 #include "compute/shards/shard_walker.h"
 #include "puzzle71_kernel.h"
+#include "launch_config.h"  // T041: Unified launch configuration system
 
 #include <cuda_runtime.h>
 
@@ -31,6 +32,22 @@ public:
 
     void SetDeterministicLaunchConfig(const puzzle71::kernel::KernelLaunchConfig& config);
 
+    // T041: New methods integrating with unified launch configuration system
+    KernelLaunchConfig planWithLaunchConfig(
+        const shards::ShardWalker& walker,
+        KernelType kernel_type,
+        OptimizationObjective objective = OptimizationObjective::MAXIMIZE_THROUGHPUT,
+        std::uint64_t desired_keys_hint = 1'048'576
+    ) const;
+
+    KernelLaunchConfig getSeparatedKernelConfig(
+        const shards::ShardWalker& walker,
+        std::uint64_t desired_keys_hint = 1'048'576
+    ) const;
+
+    void setLaunchConfigManager(std::shared_ptr<LaunchConfigManager> manager);
+    LaunchConfigManager* getLaunchConfigManager() const;
+
     // Phase A optimization: Remove artificial PPT limit to unlock higher batch sizes
     // Previous limit (64) capped H20 performance at 440 Mkeys/s
     // New limit (1024) enables 163M+ key batches for 2-3 Gkeys/s target
@@ -40,6 +57,11 @@ private:
     int device_id_{0};
     cudaDeviceProp props_{};
     std::optional<puzzle71::kernel::KernelLaunchConfig> deterministic_launch_;
+    std::shared_ptr<LaunchConfigManager> launch_config_manager_;
+
+    // T041: Helper methods for launch configuration integration
+    BatchConfig convertToBatchConfig(const KernelLaunchConfig& launch_config) const;
+    KernelLaunchConfig convertFromBatchConfig(const BatchConfig& batch_config, KernelType kernel_type) const;
 };
 
 std::uint64_t ComputeThreadCount(dim3 grid, dim3 block);

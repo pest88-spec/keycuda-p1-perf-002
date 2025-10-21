@@ -1,0 +1,439 @@
+{
+  "version": "1.0.0",
+  "configuration_type": "kernel_separation",
+  "description": "Kernel separation configuration for Puzzle71Solver CUDA project with register-optimized separated kernels",
+  "enabled": true,
+  "force_enabled": true,
+  "last_updated": "2025-10-19T00:00:00Z",
+  "created_by": "T026-T028 - Create separated kernels with register optimization",
+  "dependencies": ["memory_optimization.json"],
+
+  "kernel_separation_policy": {
+    "enabled": true,
+    "force_enable": true,
+    "separation_strategy": "register_optimized",
+    "auto_selection": true,
+    "fallback_to_monolithic": false,
+    "performance_validation": true
+  },
+
+  "separated_kernels": {
+    "ecc_kernel": {
+      "name": "ECC Separated Kernel",
+      "type": "ecc_separated",
+      "register_target": 32,
+      "register_limit": 32,
+      "variants": {
+        "basic": {
+          "name": "EccSeparatedKernel",
+          "description": "Basic ECC kernel with ≤32 registers/thread",
+          "register_usage": 32,
+          "block_size": 256,
+          "shared_memory_bytes": 0,
+          "performance_characteristics": {
+            "throughput_factor": 1.0,
+            "occupancy_target": 0.80,
+            "memory_efficiency_target": 0.90
+          },
+          "optimization_features": [
+            "Register pressure minimization",
+            "Variable reuse optimization",
+            "Three-phase batch processing",
+            "Montgomery batch inverse computation"
+          ]
+        },
+        "advanced": {
+          "name": "EccSeparatedKernelAdvanced",
+          "description": "Advanced ECC kernel with shared memory optimization",
+          "register_usage": 32,
+          "block_size": 256,
+          "shared_memory_bytes": 6144,
+          "performance_characteristics": {
+            "throughput_factor": 1.2,
+            "occupancy_target": 0.75,
+            "memory_efficiency_target": 0.95
+          },
+          "optimization_features": [
+            "Shared memory batch processing",
+            "Coalesced memory access patterns",
+            "Batch accumulator optimization",
+            "Warp-level communication"
+          ]
+        },
+        "memory_optimized": {
+          "name": "EccSeparatedKernelMemoryOptimized",
+          "description": "Memory-optimized ECC kernel with vectorized operations",
+          "register_usage": 32,
+          "block_size": 256,
+          "shared_memory_bytes": 0,
+          "performance_characteristics": {
+            "throughput_factor": 1.1,
+            "occupancy_target": 0.85,
+            "memory_efficiency_target": 0.92
+          },
+          "optimization_features": [
+            "Vectorized memory operations",
+            "Structure-of-Arrays layout support",
+            "Optimized three-phase processing",
+            "Memory bandwidth maximization"
+          ]
+        }
+      },
+      "auto_selection_criteria": {
+        "shared_memory_threshold_kb": 48,
+        "bandwidth_threshold_gb_per_sec": 400,
+        "occupancy_priority": false,
+        "memory_efficiency_priority": true
+      }
+    },
+
+    "hash_kernel": {
+      "name": "Hash Separated Kernel",
+      "type": "hash_separated",
+      "register_target": 40,
+      "register_limit": 40,
+      "variants": {
+        "basic": {
+          "name": "HashSeparatedKernel",
+          "description": "Basic Hash kernel with ≤40 registers/thread",
+          "register_usage": 40,
+          "block_size": 256,
+          "shared_memory_bytes": 0,
+          "performance_characteristics": {
+            "throughput_factor": 1.0,
+            "occupancy_target": 0.75,
+            "memory_efficiency_target": 0.85
+          },
+          "optimization_features": [
+            "Register-efficient Hash160 computation",
+            "Early exit optimization",
+            "Conditional Y-coordinate loading",
+            "Unified hash utilities integration"
+          ]
+        },
+        "advanced": {
+          "name": "HashSeparatedKernelAdvanced",
+          "description": "Advanced Hash kernel with shared memory optimization",
+          "register_usage": 40,
+          "block_size": 256,
+          "shared_memory_bytes": 12288,
+          "performance_characteristics": {
+            "throughput_factor": 1.3,
+            "occupancy_target": 0.70,
+            "memory_efficiency_target": 0.90
+          },
+          "optimization_features": [
+            "Shared memory coordinate caching",
+            "Batch Hash160 computation",
+            "Reduced global memory traffic",
+            "Coalesced access patterns"
+          ]
+        },
+        "memory_optimized": {
+          "name": "HashSeparatedKernelMemoryOptimized",
+          "description": "Memory-optimized Hash kernel with vectorized operations",
+          "register_usage": 40,
+          "block_size": 256,
+          "shared_memory_bytes": 0,
+          "performance_characteristics": {
+            "throughput_factor": 1.15,
+            "occupancy_target": 0.80,
+            "memory_efficiency_target": 0.88
+          },
+          "optimization_features": [
+            "Vectorized memory access",
+            "Lazy Y-coordinate loading",
+            "Optimized compression handling",
+            "Streamlined memory patterns"
+          ]
+        }
+      },
+      "auto_selection_criteria": {
+        "shared_memory_threshold_kb": 64,
+        "batch_size_threshold": 1000,
+        "compression_types": ["uncompressed", "compressed", "both"]
+      }
+    },
+
+    "compare_kernel": {
+      "name": "Compare Separated Kernel",
+      "type": "compare_separated",
+      "register_target": 24,
+      "register_limit": 24,
+      "variants": {
+        "basic": {
+          "name": "CompareSeparatedKernel",
+          "description": "Basic Compare kernel with ≤24 registers/thread",
+          "register_usage": 24,
+          "block_size": 512,
+          "shared_memory_bytes": 0,
+          "performance_characteristics": {
+            "throughput_factor": 1.0,
+            "occupancy_target": 0.85,
+            "memory_efficiency_target": 0.90
+          },
+          "optimization_features": [
+            "Minimal register usage",
+            "Constant memory target hash",
+            "Early exit on matches",
+            "Optimized Hash160 pipeline"
+          ]
+        },
+        "advanced": {
+          "name": "CompareSeparatedKernelAdvanced",
+          "description": "Advanced Compare kernel with batch target processing",
+          "register_usage": 24,
+          "block_size": 512,
+          "shared_memory_bytes": 640,
+          "performance_characteristics": {
+            "throughput_factor": 0.8,
+            "occupancy_target": 0.80,
+            "memory_efficiency_target": 0.95
+          },
+          "optimization_features": [
+            "Multi-target support (≤32 targets)",
+            "Shared memory target caching",
+            "Batch comparison processing",
+            "Target index tracking"
+          ]
+        },
+        "memory_optimized": {
+          "name": "CompareSeparatedKernelMemoryOptimized",
+          "description": "Memory-optimized Compare kernel with vectorized operations",
+          "register_usage": 24,
+          "block_size": 512,
+          "shared_memory_bytes": 0,
+          "performance_characteristics": {
+            "throughput_factor": 1.1,
+            "occupancy_target": 0.90,
+            "memory_efficiency_target": 0.92
+          },
+          "optimization_features": [
+            "Vectorized comparison operations",
+            "Loop unrolling for comparison",
+            "Minimal memory footprint",
+            "Optimized memory bandwidth"
+          ]
+        }
+      },
+      "auto_selection_criteria": {
+        "target_count_threshold": 1,
+        "max_supported_targets": 32,
+        "shared_memory_threshold_kb": 48
+      }
+    }
+  },
+
+  "memory_optimization_integration": {
+    "enabled": true,
+    "use_optimized_memory_functions": true,
+    "memory_function_overrides": {
+      "readInt": "readInt_Optimized",
+      "writeInt": "writeInt_Optimized",
+      "copyInt": "copyInt_Optimized"
+    },
+    "vectorized_operations": {
+      "enabled": true,
+      "vector_width": 4,
+      "vector_types": ["int4", "float4"],
+      "alignment_requirement": 16
+    },
+    "performance_targets": {
+      "memory_coalescing_efficiency": 0.95,
+      "bandwidth_utilization": 0.90,
+      "cache_hit_rate": 0.85
+    }
+  },
+
+  "kernel_launch_configuration": {
+    "auto_tuning": {
+      "enabled": true,
+      "tuning_iterations": 5,
+      "performance_metric": "throughput",
+      "warmup_iterations": 2
+    },
+    "block_size_optimization": {
+      "ecc_kernel": {
+        "default": 256,
+        "range": [128, 256, 512],
+        "optimal_for_occupancy": 256
+      },
+      "hash_kernel": {
+        "default": 256,
+        "range": [128, 256, 512],
+        "optimal_for_registers": 256
+      },
+      "compare_kernel": {
+        "default": 512,
+        "range": [256, 512, 1024],
+        "optimal_for_memory": 512
+      }
+    },
+    "grid_size_calculation": {
+      "method": "occupancy_based",
+      "minimum_blocks_per_sm": 2,
+      "target_occupancy": 0.80
+    },
+    "stream_configuration": {
+      "concurrent_kernels": 3,
+      "stream_priority": true,
+      "overlap_computation": true
+    }
+  },
+
+  "performance_monitoring": {
+    "enabled": true,
+    "metrics": [
+      "kernel_execution_time",
+      "register_usage_per_thread",
+      "shared_memory_usage",
+      "memory_bandwidth_utilization",
+      "occupancy_rate",
+      "cache_hit_rates"
+    ],
+    "thresholds": {
+      "max_register_overhead_percent": 5,
+      "min_occupancy_percent": 50,
+      "min_memory_efficiency_percent": 80,
+      "max_execution_time_regression_percent": 10
+    },
+    "validation_tests": {
+      "register_compliance": true,
+      "performance_regression": true,
+      "memory_correctness": true,
+      "kernel_correctness": true
+    }
+  },
+
+  "device_specific_optimization": {
+    "turing": {
+      "compute_capability": "75",
+      "preferred_variants": {
+        "ecc_kernel": "memory_optimized",
+        "hash_kernel": "basic",
+        "compare_kernel": "memory_optimized"
+      },
+      "register_limits": {
+        "ecc_kernel": 32,
+        "hash_kernel": 40,
+        "compare_kernel": 24
+      },
+      "shared_memory_limits": {
+        "ecc_kernel": 48,
+        "hash_kernel": 64,
+        "compare_kernel": 48
+      }
+    },
+    "ampere": {
+      "compute_capability": "86",
+      "preferred_variants": {
+        "ecc_kernel": "advanced",
+        "hash_kernel": "advanced",
+        "compare_kernel": "advanced"
+      },
+      "register_limits": {
+        "ecc_kernel": 32,
+        "hash_kernel": 40,
+        "compare_kernel": 24
+      },
+      "shared_memory_limits": {
+        "ecc_kernel": 164,
+        "hash_kernel": 164,
+        "compare_kernel": 164
+      }
+    },
+    "ada_lovelace": {
+      "compute_capability": "89",
+      "preferred_variants": {
+        "ecc_kernel": "advanced",
+        "hash_kernel": "advanced",
+        "compare_kernel": "memory_optimized"
+      },
+      "register_limits": {
+        "ecc_kernel": 32,
+        "hash_kernel": 40,
+        "compare_kernel": 24
+      },
+      "shared_memory_limits": {
+        "ecc_kernel": 164,
+        "hash_kernel": 164,
+        "compare_kernel": 164
+      }
+    },
+    "hopper": {
+      "compute_capability": "90",
+      "preferred_variants": {
+        "ecc_kernel": "advanced",
+        "hash_kernel": "advanced",
+        "compare_kernel": "advanced"
+      },
+      "register_limits": {
+        "ecc_kernel": 32,
+        "hash_kernel": 40,
+        "compare_kernel": 24
+      },
+      "shared_memory_limits": {
+        "ecc_kernel": 228,
+        "hash_kernel": 228,
+        "compare_kernel": 228
+      }
+    }
+  },
+
+  "fallback_configuration": {
+    "enabled": true,
+    "fallback_conditions": [
+      "compilation_failure",
+      "runtime_register_limit_exceeded",
+      "performance_regression_threshold_exceeded",
+      "device_capability_unsupported"
+    ],
+    "fallback_strategy": "monolithic_kernel",
+    "monolithic_fallback": {
+      "use_original_puzzle71_kernel": true,
+      "use_original_hash_kernel": true,
+      "disable_separation": true,
+      "log_fallback_reason": true
+    }
+  },
+
+  "testing_and_validation": {
+    "unit_tests": {
+      "enabled": true,
+      "register_usage_validation": true,
+      "functional_correctness": true,
+      "performance_regression": true
+    },
+    "integration_tests": {
+      "enabled": true,
+      "end_to_end_pipeline": true,
+      "multi_gpu_validation": true,
+      "stress_testing": true
+    },
+    "benchmarking": {
+      "enabled": true,
+      "baseline_comparison": true,
+      "throughput_measurement": true,
+      "memory_efficiency_analysis": true
+    }
+  },
+
+  "configuration_validation": {
+    "sha256_digest": "pending",
+    "configuration_checksum": "pending",
+    "validation_rules": [
+      "register_limits_must_be_respected",
+      "shared_memory_must_be_available",
+      "block_size_must_be_valid",
+      "grid_calculation_must_be_correct",
+      "device_capabilities_must_be_supported"
+    ],
+    "required_dependencies": [
+      "memory_optimization.json",
+      "ecc_operations.cuh",
+      "hash_utils.cuh",
+      "result_emitter.cuh",
+      "memory_optimized.cuh"
+    ]
+  }
+}

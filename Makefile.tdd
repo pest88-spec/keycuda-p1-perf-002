@@ -1,0 +1,52 @@
+# TDD Adapter Layer Test Makefile
+# Provides convenient targets for TDD workflow
+
+.PHONY: tdd-validate tdd-clean tdd-help
+
+# Default target
+.DEFAULT_GOAL := tdd-help
+
+# Validate TDD test structure (Red Phase validation)
+tdd-validate:
+	@echo "=== TDD Adapter Layer Validation ==="
+	@echo "Phase: RED (Tests should fail before implementation)"
+	@echo
+	@./scripts/validate_tdd_adapter_tests.sh
+	@echo
+	@echo "✓ TDD validation completed successfully!"
+
+# Clean test artifacts
+tdd-clean:
+	@echo "Cleaning TDD test artifacts..."
+	@rm -rf tests/build/
+	@rm -f test_results.xml
+	@echo "✓ Clean completed!"
+
+# Show TDD help
+tdd-help:
+	@echo "=== TDD Adapter Layer Makefile ==="
+	@echo
+	@echo "Available targets:"
+	@echo "  tdd-validate    - Validate TDD test structure (Red Phase)"
+	@echo "  tdd-clean       - Clean test artifacts"
+	@echo "  tdd-help        - Show this help message"
+	@echo
+	@echo "TDD Phase: RED (Current)"
+	@echo "Status: Tests designed to fail before implementation"
+	@echo
+	@echo "Usage:"
+	@echo "  make -f Makefile.tdd tdd-validate  # Validate test structure"
+	@echo "  make -f Makefile.tdd tdd-clean     # Clean artifacts"
+	@echo
+
+# Advanced: Try to run tests (will fail in Red Phase)
+tdd-run:
+	@echo "=== Running TDD Tests (Expected to Fail) ==="
+	@echo "Phase: RED - Tests should fail before implementation"
+	@echo
+	@mkdir -p tests/build && cd tests/build && \
+	cmake .. -DCMAKE_BUILD_TYPE=Debug 2>/dev/null || true && \
+	make test_adapter_standalone 2>/dev/null || true && \
+	./test_adapter_standalone 2>/dev/null || echo "✓ Expected: Tests failed (TDD Red Phase)"
+	@echo
+	@echo "✓ Test execution completed (failure expected in Red Phase)"

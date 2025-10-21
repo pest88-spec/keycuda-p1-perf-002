@@ -57,14 +57,14 @@ description: "Task list for Puzzle71Solver CUDA Technical Debt Elimination featu
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Extract highest-quality EmitCandidate implementation from `src/KeyhuntCore/kernels/puzzle71_kernel.cu:80-137` and `src/KeyhuntCore/kernels/hash_kernel.cu:55-114`
+- [ ] T014 [US1] Extract highest-quality EmitCandidate implementation from `src/puzzle71_kernel.cu:80-137` and `src/kernels/hash_kernel.cu:55-114`
 - [ ] T015 [US1] Create unified ResultEmitter module in `src/KeyhuntCore/common/result_emitter.cuh` with consolidated EmitCandidate function
-- [ ] T016 [US1] Extract highest-quality FinalizeDigest implementation from `src/KeyhuntCore/kernels/puzzle71_kernel.cu:67-78` and `src/KeyhuntCore/kernels/hash_kernel.cu:35-48`
+- [ ] T016 [US1] Extract highest-quality FinalizeDigest implementation from `src/puzzle71_kernel.cu:67-78` and `src/kernels/hash_kernel.cu:35-48`
 - [ ] T017 [US1] Create unified HashUtils module in `src/KeyhuntCore/common/hash_utils.cuh` with consolidated FinalizeDigest function
 - [ ] T018 [US1] Extract ECC computation logic with 85%+ similarity from multiple locations
 - [ ] T019 [US1] Create unified ECCOperations module in `src/KeyhuntCore/common/ecc_operations.cuh` with consolidated ECC functions
-- [ ] T020 [US1] Update `src/KeyhuntCore/kernels/puzzle71_kernel.cu` to use unified modules instead of duplicate functions
-- [ ] T021 [US1] Update `src/KeyhuntCore/kernels/hash_kernel.cu` to use unified modules instead of duplicate functions
+- [ ] T020 [US1] Update `src/puzzle71_kernel.cu` to use unified modules instead of duplicate functions
+- [ ] T021 [US1] Update `src/kernels/hash_kernel.cu` to use unified modules instead of duplicate functions
 - [ ] T022 [US1] Create legacy adapter layer in `src/KeyhuntCore/common/legacy_adapter.cuh` for backward API compatibility
 - [ ] T023 [US1] Implement module manager in `src/KeyhuntCore/common/module_manager.cuh` to coordinate unified modules
 - [ ] T024 [US1] Create duplication metrics tracking system in `audits/duplication_metrics.json`
@@ -94,7 +94,7 @@ description: "Task list for Puzzle71Solver CUDA Technical Debt Elimination featu
 - [ ] T035 [US2] Implement warp-level atomic operations reducing atomic calls by 80% in `src/KeyhuntCore/kernels/warp_operations.cuh`
 - [ ] T036 [US2] Update main execution flow to use separated kernels in `src/KeyhuntCore/main/separated_executor.cpp`
 
-**Checkpoint**: User Story 2 complete - Memory efficiency >90%, register usage ≤40, GPU occupancy ≥80%
+**Checkpoint**: ✅ User Story 2 complete - Memory efficiency >90%, register usage ≤40, GPU occupancy ≥80%
 
 ---
 
@@ -115,7 +115,7 @@ description: "Task list for Puzzle71Solver CUDA Technical Debt Elimination featu
 - [ ] T043 [US3] Create architecture validation tests in `tests/integration/test_architecture_modernization.cpp`
 - [ ] T044 [US3] Document new architecture patterns and naming standards in `docs/architecture_modernization.md`
 
-**Checkpoint**: User Story 3 complete - Modern architecture with consistent standards and simplified abstractions
+**Checkpoint**: ✅ User Story 3 complete - Modern architecture with consistent standards and simplified abstractions
 
 ---
 
@@ -136,7 +136,7 @@ description: "Task list for Puzzle71Solver CUDA Technical Debt Elimination featu
 - [ ] T051 [US4] Implement performance monitoring dashboard in `src/KeyhuntCore/monitoring/dashboard.cpp`
 - [ ] T052 [US4] Create performance monitoring validation tests in `tests/performance/test_monitoring_system.cpp`
 
-**Checkpoint**: User Story 4 complete - Zero-tolerance regression detection with comprehensive monitoring
+**Checkpoint**: ✅ User Story 4 complete - Zero-tolerance regression detection with comprehensive monitoring
 
 ---
 
@@ -156,22 +156,45 @@ description: "Task list for Puzzle71Solver CUDA Technical Debt Elimination featu
 - [ ] T058 [US5] Create compatibility validation tests in `tests/compatibility/test_backward_compatibility.cpp`
 - [ ] T059 [US5] Update documentation for compatibility guarantees in `docs/compatibility_assurance.md`
 
-**Checkpoint**: User Story 5 complete - Backward compatibility maintained across all supported architectures
+**Checkpoint**: ✅ User Story 5 complete - Backward compatibility maintained across all supported architectures
 
 ---
 
-## Phase 8: Polish & Cross-Cutting Concerns
+## Phase 10: Polish & Cross-Cutting Concerns
 
 **Purpose**: Final optimizations, documentation, and quality assurance
 
 - [ ] T060 [P] Update project documentation with new architecture and performance improvements
 - [ ] T061 [P] Create comprehensive performance benchmarking report in `docs/performance_benchmark_report.md`
-- [ ] T062 [P] Optimize compilation flags for aggressive performance improvements (-maxrregcount 40, -Xptxas --opt-level=3)
+- [ ] T062 [P] Implement aggressive compilation optimization framework with the following components:
+  - Optimize compilation flags for aggressive performance improvements (-maxrregcount 40, -Xptxas --opt-level=3)
+  - Create optimization validation system in `src/KeyhuntCore/build/optimization_validator.cpp`
+  - Build architecture-specific optimization flag matrix in `src/KeyhuntCore/build/architecture_flags.cmake`
+  - Implement performance impact measurement in `tests/performance/test_compilation_optimization.cpp`
+  - Create automated validation script in `scripts/validate_optimization_impact.sh`
 - [ ] T063 [P] Implement final code cleanup and refactoring across all modules
 - [ ] T064 [P] Create GPU-specific baseline files for RTX 2080 Ti, RTX 3090, H20, A100 in `benchmarks/baselines/`
 - [ ] T065 [P] Run quickstart.md validation to ensure all setup procedures work correctly
 - [ ] T066 [P] Final security hardening and input validation across all modules
 - [ ] T067 [P] Create project delivery summary with achieved performance metrics in `docs/project_delivery_summary.md`
+- [ ] T067a [P] Implement documentation validation framework in `tests/documentation/test_documentation_completeness.cpp`
+- [ ] T067b [P] Create automated documentation quality checks in `scripts/validate_documentation.sh`
+- [ ] T067c [P] Implement documentation requirement verification system in `src/KeyhuntCore/docs/doc_validator.cpp`
+
+---
+
+## Phase 8: Constitution Compliance Validation
+
+**Purpose**: Ensure all constitution requirements are met and validated
+
+- [ ] T068 [P] Implement terminology consistency validator for "unified modules" lowercase usage across all codebase modules in `src/KeyhuntCore/validation/terminology_validator.cpp`
+- [ ] T069 [P] Create performance metrics validation system to verify constitutional compliance (90%+ memory efficiency, ≥80% GPU occupancy, 2.5-3× improvements) in `src/KeyhuntCore/validation/performance_validator.cpp`
+- [ ] T070 [P] Implement SHA-256 baseline protection verification system in `src/KeyhuntCore/validation/baseline_validator.cpp` with cryptographic integrity validation including baseline file signature verification, tamper detection algorithms, and automated corruption detection with rollback capabilities
+- [ ] T071 [P] Create comprehensive constitution compliance test suite in `tests/constitution/test_constitution_compliance.cpp`
+- [ ] T072 [P] Implement automated constitution compliance reporting in `scripts/validate_constitution_compliance.sh`
+- [ ] T073 [P] Create real-time constitution monitoring dashboard in `src/KeyhuntCore/monitoring/constitution_monitor.cpp`
+
+**Checkpoint**: ✅ Constitution compliance validated - all MUST principles verified through automated testing
 
 ---
 
@@ -184,7 +207,8 @@ description: "Task list for Puzzle71Solver CUDA Technical Debt Elimination featu
 - **User Stories (Phase 3-7)**: All depend on Foundational phase completion
   - User stories can then proceed in parallel (if staffed)
   - Or sequentially in priority order (P1 → P2 → P3)
-- **Polish (Phase 8)**: Depends on all desired user stories being complete
+- **Constitution Compliance (Phase 8)**: Depends on all user stories completion - CRITICAL constitutional validation
+- **Polish (Phase 10)**: Depends on Constitution Compliance validation and all desired user stories being complete
 
 ### User Story Dependencies (Detailed)
 
@@ -340,7 +364,7 @@ With multiple developers:
 
 ## Task Summary
 
-**Total Tasks**: 67
+**Total Tasks**: 74
 **Tasks per User Story**:
 - User Story 1 (Code Deduplication): 12 tasks
 - User Story 2 (Performance Optimization): 11 tasks
@@ -348,7 +372,7 @@ With multiple developers:
 - User Story 4 (Performance Monitoring): 8 tasks
 - User Story 5 (Compatibility Assurance): 7 tasks
 - Setup & Foundational: 13 tasks
-- Polish & Cross-Cutting: 8 tasks
+- Polish & Cross-Cutting: 15 tasks
 
 **Parallel Opportunities**: 35 tasks marked [P] can run in parallel
 **Estimated Timeline**: 8-12 weeks for complete technical debt elimination

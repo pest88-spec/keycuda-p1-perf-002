@@ -33,6 +33,7 @@ struct ParsedArgs {
     std::string luck_file{"luck.txt"};
     std::optional<std::string> parity_test_scalar;
     std::optional<std::string> device_list;
+    bool use_separated_kernels{false};
 };
 
 std::vector<int> ParseDeviceList(const std::optional<std::string>& list) {
@@ -59,10 +60,11 @@ std::vector<int> ParseDeviceList(const std::optional<std::string>& list) {
 void PrintUsage() {
     std::cerr << "Usage: Puzzle71Solver --keyspace <start:end> --target-address <addr> --operator-id <id> "
                  "--operator-purpose <purpose> [--device <ids>] [--dry-run] [--enable-checkpoint] "
-                 "[--super] [--verbose] [--prometheus-export <dir>] [--telemetry-jsonl <dir>] [--replay-manifest <path>] "
+                 "[--super] [--verbose] [--use-separated-kernels] [--prometheus-export <dir>] [--telemetry-jsonl <dir>] [--replay-manifest <path>] "
                  "[--resume-manifest <path>] [--luck-file <path>]" << std::endl;
     std::cerr << "\n  --super: Skip Puzzle #71 security restrictions (for testing/benchmarking)" << std::endl;
     std::cerr << "  --verbose: Emit detailed debug diagnostics" << std::endl;
+    std::cerr << "  --use-separated-kernels: Enable high-performance separated kernel execution" << std::endl;
 }
 
 ParsedArgs ParseArguments(int argc, char* argv[]) {
@@ -129,6 +131,10 @@ ParsedArgs ParseArguments(int argc, char* argv[]) {
         }
         if (arg == "--luck-file") {
             requires_value(arg, parsed.luck_file);
+            continue;
+        }
+        if (arg == "--use-separated-kernels") {
+            parsed.use_separated_kernels = true;
             continue;
         }
         if (arg.size() >= 2 && arg[0] == '-' && arg[1] == '-') {
@@ -206,10 +212,15 @@ int main(int argc, char* argv[]) {
         options.luck_file = parsed.luck_file;
         options.parity_test_scalar_hex = parsed.parity_test_scalar;
         options.device_ids = ParseDeviceList(parsed.device_list);
+        options.use_separated_kernels = parsed.use_separated_kernels;
 
         if (options.parity_test_scalar_hex) {
             std::cerr << "[warning] Parity test mode enabled with scalar "
                       << *options.parity_test_scalar_hex << std::endl;
+        }
+
+        if (options.use_separated_kernels) {
+            std::cerr << "[info] High-performance separated kernel execution enabled" << std::endl;
         }
 
         if (auto cfg = puzzle71::config::LoadConfig("config/puzzle71.yaml")) {

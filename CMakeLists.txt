@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(Puzzle71Solver VERSION 0.1.0 LANGUAGES CXX CUDA)
+project(Puzzle71Solver VERSION 2.0.0 LANGUAGES CXX CUDA)
 
 option(SECP256K1_AVAILABLE "Enable bitcoin-core/secp256k1 parity checks" ON)
 option(ENABLE_INTEGRATION_SYSTEM "Enable third-party library integration system" ON)
@@ -11,16 +11,16 @@ option(DEPLOYMENT_SELF_CONTAINED "Create self-contained deployment packages" ON)
 option(DEPLOYMENT_INCLUDE_DOCS "Include documentation in deployment packages" ON)
 option(DEPLOYMENT_COMPRESS_PACKAGE "Compress deployment packages" ON)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 20)
+set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Reproducible builds
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# Support Turing (75), Ampere (86), Ada Lovelace (89), Hopper (90)
-set(CMAKE_CUDA_ARCHITECTURES 75-real 86-real 89-real 90-real)
+# Support Turing (75), Ampere (80, 86), Ada Lovelace (89), Hopper (90) - Updated T031
+set(CMAKE_CUDA_ARCHITECTURES 75-real 80-real 86-real 89-real 90-real)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -73,7 +73,207 @@ set(PUZZLE71_CORE_SOURCES
   src/compute/gpu/gpu_executor.cpp
   src/compute/gpu/device_buffers.cpp
   src/compute/adapters/reference/conversions.cpp
+  # T012: Force enable memory optimization configuration
+  src/KeyhuntCore/common/memory_config_manager.cpp
+  # T013: Create GPU architecture detection and validation
+  src/KeyhuntCore/gpu/architecture_detector.cpp
 )
+
+# New separated kernels (T004 - T026, T027, T028)
+set(KEYHUNT_CORE_SEPARATED_KERNELS
+  # Separated ECC kernel with ≤32 registers/thread (T026)
+  src/KeyhuntCore/kernels/ecc_separated.cu
+  # Separated hash kernel with ≤40 registers/thread (T027)
+  src/KeyhuntCore/kernels/hash_separated.cu
+  # Separated compare kernel with ≤24 registers/thread (T028)
+  src/KeyhuntCore/kernels/compare_separated.cu
+  # Warp-level operations for 80% atomic reduction (T035)
+  src/KeyhuntCore/kernels/warp_operations.cuh
+)
+
+# Technical debt repair system sources (Phase 1-4) - Updated T031
+set(TECHDEBT_REPAIR_SOURCES
+  # User Story 1 - Core Technical Debt Resolution (Enhanced)
+  src/KeyhuntCore/common/ecc_operations_fixed.cuh
+  src/KeyhuntCore/common/ecc_operations_fixed.cu
+  src/KeyhuntCore/common/legacy_adapter_fixed.cuh
+  src/KeyhuntCore/common/legacy_adapter_fixed.cu
+  src/KeyhuntCore/common/legacy_adapter_fixed_enhanced.cuh
+  src/KeyhuntCore/common/legacy_adapter_fixed_enhanced.cu
+  src/KeyhuntCore/common/ecc_adapter_integration.cuh
+  src/KeyhuntCore/common/ecc_adapter_integration.cu
+  src/KeyhuntCore/common/ecc_adapter_integration_enhanced.cuh
+  src/KeyhuntCore/common/ecc_adapter_integration_enhanced.cu
+  src/KeyhuntCore/common/static_launch_config.h
+  src/KeyhuntCore/common/static_launch_config.cpp
+  src/compute/gpu/static_config_integration.h
+  src/compute/gpu/static_config_integration.cpp
+  src/config/puzzle71_config_validator.h
+  src/config/puzzle71_config_validator.cpp
+  src/puzzle71_kernel_fixed.cu
+
+  # User Story 2 - Performance Validation and Optimization
+  src/KeyhuntCore/common/unified_candidate_scanner.cuh
+  src/KeyhuntCore/common/unified_candidate_scanner.cu
+  src/KeyhuntCore/common/optimized_memory_access.cuh
+  src/KeyhuntCore/common/optimized_memory_access.cu
+  src/KeyhuntCore/common/shared_memory_optimization.cuh
+  src/KeyhuntCore/common/shared_memory_optimization.cu
+  src/KeyhuntCore/common/warp_primitives.cuh
+  src/KeyhuntCore/common/warp_primitives.cu
+  src/KeyhuntCore/common/adaptive_gpu_utilization.cuh
+  src/KeyhuntCore/common/adaptive_gpu_utilization.cu
+  src/KeyhuntCore/common/performance_telemetry.cuh
+  src/KeyhuntCore/common/performance_telemetry.cu
+  src/KeyhuntCore/common/nsight_profiler.cuh
+  src/KeyhuntCore/common/nsight_profiler.cu
+  src/KeyhuntCore/common/performance_regression.cuh
+  src/KeyhuntCore/common/performance_regression.cu
+  src/KeyhuntCore/common/kernel_launch_optimizer.cuh
+  src/KeyhuntCore/common/kernel_launch_optimizer.cu
+
+  # User Story 4 - Integration Testing and Validation System (Enhanced)
+  src/KeyhuntCore/validation/ecc_validation.cpp
+  src/KeyhuntCore/validation/deterministic_replay.cpp
+  src/KeyhuntCore/validation/deterministic_replay.h
+  src/KeyhuntCore/validation/constitutional_compliance.cpp
+  src/KeyhuntCore/validation/constitutional_compliance.h
+  src/KeyhuntCore/validation/performance_regression.cpp
+  src/KeyhuntCore/validation/baseline_validator.cpp
+  src/KeyhuntCore/validation/baseline_validator.h
+  src/KeyhuntCore/validation/performance_validator.cpp
+  src/KeyhuntCore/validation/performance_validator.h
+  src/KeyhuntCore/validation/terminology_validator.cpp
+  src/KeyhuntCore/validation/terminology_validator.h
+  src/KeyhuntCore/validation/memory_efficiency_validator.h
+  src/KeyhuntCore/validation/memory_efficiency_validator.cpp
+  src/KeyhuntCore/validation/gpu_utilization_validator.h
+  src/KeyhuntCore/validation/gpu_utilization_validator.cpp
+  src/KeyhuntCore/validation/synchronization_overhead_validator.h
+  src/KeyhuntCore/validation/synchronization_overhead_validator.cpp
+
+  # User Story 3 - Complete System Migration and Quality Assurance
+  src/KeyhuntCore/common/architectural_compliance_framework.cpp
+  src/KeyhuntCore/common/test_coverage_framework.cpp
+  src/KeyhuntCore/common/legacy_removal_framework.cpp
+  src/KeyhuntCore/common/ecc_validation_framework.cpp
+
+  # GPU Architecture and Performance Management
+  src/compute/gpu/launch_config.cpp
+  src/compute/gpu/launch_config.h
+  src/compute/gpu/replay_verification.cpp
+  src/compute/gpu/replay_verification.h
+  src/compute/gpu/separated_kernel_executor.cpp
+  src/compute/gpu/separated_kernel_executor.h
+  src/compute/gpu/unified_candidate.cpp
+  src/compute/gpu/unified_candidate.h
+
+  # Monitoring System (T031)
+  src/KeyhuntCore/monitoring/memory_validator.cpp
+  src/KeyhuntCore/monitoring/memory_validator.h
+  src/KeyhuntCore/monitoring/performance_monitor.cpp
+  src/KeyhuntCore/monitoring/performance_monitor.h
+  src/KeyhuntCore/monitoring/real_time_monitor.cuh
+  src/KeyhuntCore/monitoring/technical_debt_tracker.cpp
+  src/KeyhuntCore/monitoring/technical_debt_tracker.h
+
+  # Unified Utilities (T031)
+  src/KeyhuntCore/common/hash_utils.cuh
+  src/KeyhuntCore/common/result_emitter.cuh
+  src/utils/hash_utils.cpp
+  src/utils/hash_utils.h
+  src/utils/batch_operations.h
+)
+
+# Add separated kernels if they exist
+set(AVAILABLE_SEPARATED_KERNELS "")
+foreach(kernel_file ${KEYHUNT_CORE_SEPARATED_KERNELS})
+  if(EXISTS ${CMAKE_SOURCE_DIR}/${kernel_file})
+    list(APPEND AVAILABLE_SEPARATED_KERNELS ${kernel_file})
+  endif()
+endforeach()
+
+# Create separated kernel library if available
+if(AVAILABLE_SEPARATED_KERNELS)
+  add_library(keyhunt_separated_kernels STATIC ${AVAILABLE_SEPARATED_KERNELS})
+  target_include_directories(keyhunt_separated_kernels PRIVATE
+    ${CUDAToolkit_INCLUDE_DIRS}
+    src
+    src/KeyhuntCore/common
+    src/KeyhuntCore/kernels
+    src/KeyhuntCore/memory
+    src/KeyhuntCore/utils
+  )
+  target_link_libraries(keyhunt_separated_kernels PRIVATE CUDA::cudart)
+
+  set_target_properties(keyhunt_separated_kernels PROPERTIES
+    CUDA_ARCHITECTURES "75;80;86;89;90"
+    CUDA_SEPARABLE_COMPILATION ON
+  )
+
+  # Store linking for later (after executable is defined)
+  set(SEPARATED_KERNELS_NEED_LINKING TRUE)
+
+  list(LENGTH AVAILABLE_SEPARATED_KERNELS kernel_file_count)
+  message(STATUS "Added ${kernel_file_count} separated kernel sources")
+endif()
+
+# Add technical debt repair sources if they exist
+set(AVAILABLE_TECHDEBT_REPAIR_SOURCES "")
+foreach(source_file ${TECHDEBT_REPAIR_SOURCES})
+  if(EXISTS ${CMAKE_SOURCE_DIR}/${source_file})
+    list(APPEND AVAILABLE_TECHDEBT_REPAIR_SOURCES ${source_file})
+  endif()
+endforeach()
+
+# Create technical debt repair library if sources are available
+set(TECHDEBT_REPAIR_NEED_LINKING FALSE)
+if(AVAILABLE_TECHDEBT_REPAIR_SOURCES)
+  add_library(techdebt_repair STATIC ${AVAILABLE_TECHDEBT_REPAIR_SOURCES})
+  target_include_directories(techdebt_repair PRIVATE
+    ${CUDAToolkit_INCLUDE_DIRS}
+    src
+    src/KeyhuntCore/common
+    src/KeyhuntCore/validation
+    src/KeyhuntCore/monitoring
+    src/KeyhuntCore/benchmarks
+    src/KeyhuntCore/gpu
+    src/KeyhuntCore/memory
+    src/KeyhuntCore/utils
+    src/compute/gpu
+    src/config
+    src/utils
+    tests/architecture
+    tests/coverage
+    tests/migration
+    tests/validation
+    tests/performance
+    tests/unit
+    tests/integration
+    tests/benchmark
+    tests/compatibility
+  )
+  target_link_libraries(techdebt_repair PRIVATE
+    CUDA::cudart
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    nlohmann_json::nlohmann_json
+  )
+  if(TARGET secp256k1)
+    target_link_libraries(techdebt_repair PRIVATE secp256k1)
+  endif()
+
+  set_target_properties(techdebt_repair PROPERTIES
+    CUDA_ARCHITECTURES "75;80;86;89;90"
+    CUDA_SEPARABLE_COMPILATION ON
+  )
+
+  # Store linking for later (after executable is defined)
+  set(TECHDEBT_REPAIR_NEED_LINKING TRUE)
+
+  list(LENGTH AVAILABLE_TECHDEBT_REPAIR_SOURCES techdebt_file_count)
+  message(STATUS "Added ${techdebt_file_count} technical debt repair sources")
+endif()
 
 add_executable(Puzzle71Solver ${PUZZLE71_CORE_SOURCES})
 set_target_properties(Puzzle71Solver PROPERTIES ENABLE_EXPORTS ON)
@@ -83,6 +283,15 @@ set_source_files_properties(src/compute/gpu/device_buffers.cpp PROPERTIES LANGUA
 
 # Mark uint256.cpp as CUDA source (contains __host__ __device__ functions)
 set_source_files_properties(src/core/uint256.cpp PROPERTIES LANGUAGE CUDA)
+
+# Mark new kernel files as CUDA sources - Updated T031
+set_source_files_properties(src/puzzle71_kernel_fixed.cu PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(src/KeyhuntCore/common/ecc_operations_fixed.cu PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(src/KeyhuntCore/common/legacy_adapter_fixed.cu PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(src/KeyhuntCore/common/legacy_adapter_fixed_enhanced.cu PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(src/KeyhuntCore/common/ecc_adapter_integration.cu PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(src/KeyhuntCore/common/ecc_adapter_integration_enhanced.cu PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(src/KeyhuntCore/monitoring/real_time_monitor.cuh PROPERTIES LANGUAGE CUDA)
 
 # Find CUDA and add include directories for both .cu and .cpp files
 find_package(CUDAToolkit REQUIRED)
@@ -108,6 +317,22 @@ target_include_directories(Puzzle71Solver PRIVATE
   src/integration/verification
   src/integration/config
   src/integration/metrics
+  # New unified modules directory (T002)
+  src/KeyhuntCore/common
+  src/KeyhuntCore/kernels
+  src/KeyhuntCore/benchmarks
+  src/KeyhuntCore/gpu
+  src/KeyhuntCore/memory
+  src/KeyhuntCore/validation
+  src/KeyhuntCore/utils
+  src/KeyhuntCore/monitoring
+  src/KeyhuntCore/security
+  src/KeyhuntCore/build
+  src/KeyhuntCore/docs
+  src/KeyhuntCore/compatibility
+  src/KeyhuntCore/config
+  src/KeyhuntCore/adapters
+  src/KeyhuntCore/main
   src/extracted/bitcrack
   src/extracted/bitcrack/AddressUtil
   src/extracted/bitcrack/CryptoUtil
@@ -226,7 +451,7 @@ else()
 endif()
 
 
-set_target_properties(Puzzle71Solver PROPERTIES CUDA_ARCHITECTURES "75;86;89;90")
+set_target_properties(Puzzle71Solver PROPERTIES CUDA_ARCHITECTURES "75;80;86;89;90")
 
 # Link dependencies (order matters: CUDA runtime must be linked before OpenSSL)
 find_package(OpenSSL REQUIRED)
@@ -234,7 +459,19 @@ target_link_libraries(Puzzle71Solver PRIVATE
   OpenSSL::SSL
   OpenSSL::Crypto
   nlohmann_json::nlohmann_json
+  yaml-cpp::yaml-cpp
 )
+
+# Link technical debt repair and separated kernel libraries if they were created
+if(SEPARATED_KERNELS_NEED_LINKING)
+  target_link_libraries(Puzzle71Solver PRIVATE keyhunt_separated_kernels)
+  message(STATUS "Linked separated kernels to main executable")
+endif()
+
+if(TECHDEBT_REPAIR_NEED_LINKING)
+  target_link_libraries(Puzzle71Solver PRIVATE techdebt_repair)
+  message(STATUS "Linked technical debt repair library to main executable")
+endif()
 
 set(BITCRACK_SOURCES
   src/extracted/bitcrack/CudaKeySearchDevice/CudaAtomicList.cu
@@ -330,6 +567,15 @@ else()
   message(STATUS "secp256k1 support disabled (submodule not available)")
 endif()
 
+# CRITICAL FIX: Use original readInt/writeInt (no shared memory)
+# P0-001 optimization FAILED - shared memory caused program hang (deadlock in __syncthreads)
+# Keeping unoptimized version until proper fix is implemented
+target_compile_definitions(Puzzle71Solver PRIVATE
+  USE_ORIGINAL_READINT=1
+  USE_ORIGINAL_WRITEINT=1
+)
+message(STATUS "Using original (unoptimized) readInt/writeInt - stable baseline 16.4 Mkeys/s")
+
 # Enable testing / Use system packages instead of FetchContent
 if(NOT OFFLINE_BUILD)
   # nlohmann/json - 使用系统安装的版本
@@ -346,6 +592,20 @@ if(NOT OFFLINE_BUILD)
     endif()
   endif()
 
+  # yaml-cpp - YAML configuration library
+  find_package(yaml-cpp 0.7.0 QUIET)
+  if(NOT yaml-cpp_FOUND)
+    # 如果系统没有安装，尝试使用系统头文件
+    if(EXISTS "/usr/include/yaml-cpp/yaml.h")
+      add_library(yaml-cpp INTERFACE)
+      target_include_directories(yaml-cpp INTERFACE /usr/include)
+      add_library(yaml-cpp::yaml-cpp ALIAS yaml-cpp)
+      message(STATUS "Using system yaml-cpp from /usr/include")
+    else()
+      message(FATAL_ERROR "yaml-cpp not found. Please install libyaml-cpp-dev")
+    endif()
+  endif()
+
   # GoogleTest - 使用系统安装的版本
   find_package(GTest REQUIRED)
   if(NOT GTest_FOUND)
@@ -358,6 +618,11 @@ else()
     add_library(nlohmann_json INTERFACE)
     target_include_directories(nlohmann_json INTERFACE /usr/include)  # System fallback
     add_library(nlohmann_json::nlohmann_json ALIAS nlohmann_json)
+  endif()
+  if(NOT TARGET yaml-cpp::yaml-cpp)
+    add_library(yaml-cpp INTERFACE)
+    target_include_directories(yaml-cpp INTERFACE /usr/include)  # System fallback
+    add_library(yaml-cpp::yaml-cpp ALIAS yaml-cpp)
   endif()
 endif()
 
@@ -394,12 +659,150 @@ else()
   message(STATUS "Offline build: Testing disabled")
 endif()
 
-# Benchmark helper target placeholder
+# New benchmark system (T003)
+set(KEYHUNT_CORE_BENCHMARK_SOURCES
+  # Performance baseline manager (T008)
+  src/KeyhuntCore/benchmarks/baseline_manager.cpp
+  # Benchmark runner for sustained testing (T009)
+  src/KeyhuntCore/benchmarks/benchmark_runner.cpp
+  # Telemetry collector for real-time metrics (T010)
+  src/KeyhuntCore/benchmarks/telemetry_collector.cpp
+  # Performance regression testing framework (T011)
+  src/KeyhuntCore/benchmarks/regression_testing_framework.cpp
+  # Multi-GPU benchmark validation (T049)
+  src/KeyhuntCore/benchmarks/multi_gpu_validator.cpp
+)
+
+# Add benchmark sources if they exist
+set(AVAILABLE_BENCHMARK_SOURCES "")
+foreach(source_file ${KEYHUNT_CORE_BENCHMARK_SOURCES})
+  if(EXISTS ${CMAKE_SOURCE_DIR}/${source_file})
+    list(APPEND AVAILABLE_BENCHMARK_SOURCES ${source_file})
+  endif()
+endforeach()
+
+# Create benchmark executable if sources are available
+if(AVAILABLE_BENCHMARK_SOURCES)
+  add_executable(keyhunt_benchmarks ${AVAILABLE_BENCHMARK_SOURCES})
+  target_include_directories(keyhunt_benchmarks PRIVATE
+    ${CUDAToolkit_INCLUDE_DIRS}
+    src
+    src/KeyhuntCore/common
+    src/KeyhuntCore/benchmarks
+    src/KeyhuntCore/gpu
+    src/KeyhuntCore/memory
+    src/KeyhuntCore/utils
+  )
+  target_link_libraries(keyhunt_benchmarks PRIVATE
+    CUDA::cudart
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    nlohmann_json::nlohmann_json
+  )
+  if(TARGET secp256k1)
+    target_link_libraries(keyhunt_benchmarks PRIVATE secp256k1)
+  endif()
+
+  set_target_properties(keyhunt_benchmarks PROPERTIES
+    CUDA_ARCHITECTURES "75;80;86;89;90"
+    CUDA_SEPARABLE_COMPILATION ON
+  )
+
+  # Enable testing with benchmarks
+  if(NOT OFFLINE_BUILD AND GTest_FOUND)
+    target_link_libraries(keyhunt_benchmarks PRIVATE GTest::gtest_main)
+    target_compile_definitions(keyhunt_benchmarks PRIVATE KEYHUNT_BENCHMARK_TESTING=1)
+    add_test(NAME keyhunt_benchmarks_test COMMAND keyhunt_benchmarks)
+  endif()
+
+  list(LENGTH AVAILABLE_BENCHMARK_SOURCES benchmark_file_count)
+  message(STATUS "Added ${benchmark_file_count} benchmark sources")
+endif()
+
+# Enhanced benchmark targets
 add_custom_target(run-benchmarks
-  COMMAND ${CMAKE_SOURCE_DIR}/scripts/run-benchmarks.sh
+  COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_benchmarks.sh
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Execute GPU benchmark harness"
 )
+
+# New benchmark management targets (T008-T010, T049)
+if(TARGET keyhunt_benchmarks)
+  # Baseline management target
+  add_custom_target(manage-baselines
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/modern/ci/performance-gate.sh --help
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Performance baseline management system"
+  )
+
+  # Sustained benchmark target
+  add_custom_target(run-sustained-benchmark
+    COMMAND keyhunt_benchmarks --duration 600 --output-format json
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Run 10-minute sustained benchmark"
+  )
+
+  # Multi-GPU benchmark target
+  add_custom_target(run-multi-gpu-benchmark
+    COMMAND keyhunt_benchmarks --multi-gpu --validate-all
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Run multi-GPU benchmark validation"
+  )
+
+  # Performance telemetry target
+  add_custom_target(collect-telemetry
+    COMMAND keyhunt_benchmarks --telemetry --real-time
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Collect real-time performance telemetry"
+  )
+
+  message(STATUS "Enhanced benchmark targets: manage-baselines, run-sustained-benchmark, run-multi-gpu-benchmark, collect-telemetry")
+
+  # Technical debt repair specific benchmarking targets (T031)
+  if(TECHDEBT_REPAIR_NEED_LINKING)
+    # ECC operations benchmark
+    add_custom_target(benchmark-ecc-operations
+      COMMAND keyhunt_benchmarks --benchmark ecc_operations --duration 300
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      COMMENT "Benchmark ECC operations performance"
+    )
+
+    # Adapter layer benchmark
+    add_custom_target(benchmark-adapter-layer
+      COMMAND keyhunt_benchmarks --benchmark adapter_layer --duration 300
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      COMMENT "Benchmark adapter layer performance"
+    )
+
+    # Static launch config benchmark
+    add_custom_target(benchmark-static-config
+      COMMAND keyhunt_benchmarks --benchmark static_launch_config --duration 300
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      COMMENT "Benchmark static launch configuration performance"
+    )
+
+    # Monitoring system benchmark
+    add_custom_target(benchmark-monitoring
+      COMMAND keyhunt_benchmarks --benchmark monitoring --duration 300
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      COMMENT "Benchmark monitoring system performance"
+    )
+
+    # Complete technical debt benchmark suite
+    add_custom_target(benchmark-complete-techdebt
+      COMMAND ${CMAKE_COMMAND} -E echo "Running complete technical debt benchmark suite..."
+      COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target benchmark-ecc-operations
+      COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target benchmark-adapter-layer
+      COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target benchmark-static-config
+      COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target benchmark-monitoring
+      COMMAND ${CMAKE_COMMAND} -E echo "Technical debt benchmark suite complete"
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Run complete technical debt benchmark suite"
+    )
+
+    message(STATUS "Technical debt benchmark targets: benchmark-ecc-operations, benchmark-adapter-layer, benchmark-static-config, benchmark-monitoring, benchmark-complete-techdebt")
+  endif()
+endif()
 
 # Integration system targets
 if(ENABLE_INTEGRATION_SYSTEM)
@@ -1182,5 +1585,74 @@ if(ENABLE_INTEGRATION_SYSTEM)
     message(STATUS "Integration targets: verify-integration, verify-attribution, test-integration, setup-integration, integrate-dependencies")
     message(STATUS "Dependency management targets: init-dependency-version, detect-dependency-versions, check-dependency-updates, validate-dependency-compatibility, update-dependencies, update-external-dependencies, update-cmake-dependencies, generate-dependency-report, generate-dependency-summary, list-dependency-backups, manage-dependencies")
     message(STATUS "Deployment targets: package-deployment, verify-deployment, test-deployment, deploy, log-deployment-config, generate-deployment-report, deploy-with-logging, deploy-minimal, deploy-iot, deploy-embedded, test-resource-deployment, deploy-resources, verify-cross-platform, check-platform-compatibility, deploy-cross-platform, verify-startup, check-startup, check-library-availability, check-libs-quick, check-libs-comprehensive, analyze-library-coverage, validate-library-inclusion, generate-library-inventory, test-cross-environment, check-environment-consistency, test-all-environments, test-minimal-environment, test-production-environment, test-resource-constrained-environment, analyze-deployment-consistency, validate-environment-compatibility, validate-self-contained, check-self-contained, validate-complete-self-contained, validate-external-dependencies, validate-portability, validate-resource-encapsulation, validate-one-click-deployment, qa-deployment-packages, verify-one-click-deployment")
+  endif()
+
+  # Constitutional compliance validation targets (T031)
+  if(TECHDEBT_REPAIR_NEED_LINKING)
+    # Constitutional compliance validation target
+    add_custom_target(validate-constitutional-compliance
+      COMMAND ${CMAKE_COMMAND} -E echo "Validating constitutional compliance..."
+      COMMAND ${CMAKE_SOURCE_DIR}/scripts/validate_constitutional_compliance.sh
+        --source-dir ${CMAKE_SOURCE_DIR}
+        --build-dir ${CMAKE_BINARY_DIR}
+        --output-format both
+        --strict
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Validate constitutional compliance for all technical debt repairs"
+    )
+
+    # Quick constitutional compliance check
+    add_custom_target(check-constitutional-compliance
+      COMMAND ${CMAKE_COMMAND} -E echo "Quick constitutional compliance check..."
+      COMMAND ${CMAKE_SOURCE_DIR}/scripts/validate_constitutional_compliance.sh
+        --source-dir ${CMAKE_SOURCE_DIR}
+        --build-dir ${CMAKE_BINARY_DIR}
+        --output-format summary
+        --timeout 300
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Quick constitutional compliance validation"
+    )
+
+    # Technical debt validation target
+    add_custom_target(validate-technical-debt
+      COMMAND ${CMAKE_COMMAND} -E echo "Validating technical debt repairs..."
+      COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target validate-constitutional-compliance
+      COMMAND ${CMAKE_COMMAND} -E echo "Technical debt validation complete"
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Validate all technical debt repairs and constitutional compliance"
+    )
+
+    # Performance regression validation target
+    add_custom_target(validate-performance-regression
+      COMMAND ${CMAKE_COMMAND} -E echo "Validating performance regression..."
+      COMMAND ${CMAKE_SOURCE_DIR}/scripts/validate_t073_duplication.sh
+        --build-dir ${CMAKE_BINARY_DIR}
+        --strict
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Validate performance regression for technical debt repairs"
+    )
+
+    # Test coverage validation target
+    add_custom_target(validate-test-coverage
+      COMMAND ${CMAKE_COMMAND} -E echo "Validating test coverage..."
+      COMMAND ${CMAKE_SOURCE_DIR}/scripts/validate_t074_test_coverage.sh
+        --build-dir ${CMAKE_BINARY_DIR}
+        --minimum-coverage 80
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Validate test coverage for technical debt repairs"
+    )
+
+    # Complete validation pipeline
+    add_custom_target(validate-complete-techdebt
+      COMMAND ${CMAKE_COMMAND} -E echo "Running complete technical debt validation pipeline..."
+      COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target validate-constitutional-compliance
+      COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target validate-performance-regression
+      COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target validate-test-coverage
+      COMMAND ${CMAKE_COMMAND} -E echo "Complete technical debt validation pipeline finished"
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Complete technical debt validation pipeline with all checks"
+    )
+
+    message(STATUS "Technical debt validation targets: validate-constitutional-compliance, check-constitutional-compliance, validate-technical-debt, validate-performance-regression, validate-test-coverage, validate-complete-techdebt")
   endif()
 endif()

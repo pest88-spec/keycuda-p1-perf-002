@@ -13,11 +13,14 @@
 #include "hash_kernel.h"
 #include "compare/kernels/hash160_fused.h"
 #include "utils/endianness.h"
-#include "CudaKeySearchDevice/CudaDeviceKeys.cuh"
-#include "KeyFinderLib/KeySearchTypes.h"
 #include "compute/gpu/device_buffers.h"
 #include "compute/gpu/device_results.h"
 #include "cudaMath/secp256k1.cuh"
+
+// UNIFIED MODULES: Using existing unified modules for T071 migration
+#include "../KeyhuntCore/common/result_emitter.cuh"
+#include "../KeyhuntCore/common/hash_utils.cuh"
+#include "../KeyhuntCore/common/ecc_operations.cuh"
 
 #include <cuda_runtime.h>
 
@@ -30,88 +33,20 @@ namespace {
 __device__ DeviceResultBuffer g_result_buffer;
 
 /**
- * @brief 完成Hash160摘要（添加IV并字节交换）
+ * @brief finalizeDigest now uses unified implementation from hash_utils.cuh (T038: Updated to camelCase)
+ * This eliminates 14 lines of code duplication and ensures consistency
  */
-__device__ inline void FinalizeDigest(const std::uint32_t in[5], std::uint32_t out[5]) {
-    const std::uint32_t iv[5] = {
-        0x67452301u,
-        0xefcdab89u,
-        0x98badcfeu,
-        0x10325476u,
-        0xc3d2e1f0u
-    };
-    
-    for (int i = 0; i < 5; ++i) {
-        const std::uint32_t value = in[i] + iv[(i + 1) % 5];
-        out[i] = puzzle71::utils::ByteSwap32(value);
-    }
-}
 
 /**
- * @brief 发射候选结果（使用warp级优化）
- * 
- * 使用__ballot_sync和__popc减少atomic操作次数
+ * @brief emitCandidate now uses unified implementation from result_emitter.cuh (T038: Updated to camelCase)
+ * This eliminates 60 lines of code duplication and ensures consistency
+ *
+ * The unified implementation combines the best features from both original versions:
+ * - Advanced overflow detection (from puzzle71_kernel.cu)
+ * - Optimized warp-level communication (from hash_kernel.cu)
+ * - Comprehensive result metadata
+ * - Streamlined memory access patterns
  */
-__device__ inline void EmitCandidate(
-    bool has_candidate,
-    int idx,
-    bool compressed,
-    const unsigned int x[8],
-    const unsigned int y[8],
-    const std::uint32_t digest[5]
-) {
-    if (g_result_buffer.capacity == 0 || 
-        g_result_buffer.candidates == nullptr ||
-        g_result_buffer.count == nullptr) {
-        return;
-    }
-    
-    const unsigned full_mask = 0xffffffffu;
-    unsigned active = __ballot_sync(full_mask, has_candidate);
-    
-    if (active == 0u) {
-        return;  // 整个warp都没有候选
-    }
-    
-    const int lane = threadIdx.x & 31;
-    const int leader = __ffs(active) - 1;
-    const unsigned int matches = __popc(active);
-    
-    std::uint32_t base_index = 0;
-    
-    // 只有leader线程执行atomic操作
-    if (lane == leader) {
-        base_index = atomicAdd(g_result_buffer.count, matches);
-    }
-    
-    // 广播base_index到整个warp
-    base_index = __shfl_sync(full_mask, base_index, leader);
-    
-    if (!has_candidate) {
-        return;
-    }
-    
-    // 计算当前线程在warp中的相对位置
-    const unsigned int mask_before = (1u << lane) - 1u;
-    const unsigned int offset = __popc(active & mask_before);
-    const std::uint32_t slot = base_index + offset;
-    
-    if (slot >= g_result_buffer.capacity) {
-        return;  // 缓冲区已满
-    }
-    
-    // 写入结果
-    DeviceCandidate& out = g_result_buffer.candidates[slot];
-    out.idx = static_cast<std::uint32_t>(idx);
-    out.compressed = compressed ? 1u : 0u;
-    
-    for (int i = 0; i < 8; ++i) {
-        out.x[i] = x[i];
-        out.y[i] = y[i];
-    }
-    
-    FinalizeDigest(digest, out.digest);
-}
 
 }  // namespace
 
@@ -156,36 +91,36 @@ __global__ void __launch_bounds__(256) HashKernel(
 
     for (int i = 0; i < pointsPerThread; ++i) {
         unsigned int x[8];
-        readInt(xPtr, i, x);
-        
-        // 检查未压缩地址
+        keyhunt::common::ReadBigInt(xPtr, i, x);
+
+        // 检查未压缩地址 - Using unified hash operations (T071)
         if (check_uncompressed) {
             unsigned int y[8];
             std::uint32_t digest[5]{};
-            
-            readInt(yPtr, i, y);
+
+            keyhunt::common::ReadBigInt(yPtr, i, y);
             puzzle71::compare::Hash160Uncompressed(x, y, digest);
-            
+
             bool match = puzzle71::compare::HashMatchesTarget(digest);
-            EmitCandidate(match, i, false, x, y, digest);
+            keyhunt::common::emitCandidate(match, i, false, x, y, digest);
         }
-        
-        // 检查压缩地址
+
+        // 检查压缩地址 - Using unified hash operations (T071)
         if (check_compressed) {
             std::uint32_t digest[5]{};
-            unsigned int y_parity = readIntLSW(yPtr, i);
-            
+            unsigned int y_parity = keyhunt::common::ReadLSW(yPtr, i);
+
             puzzle71::compare::Hash160Compressed(x, y_parity, digest);
-            
+
             bool match = puzzle71::compare::HashMatchesTarget(digest);
-            
+
             // 只有匹配时才读取完整的Y坐标
             unsigned int y_full[8]{};
             if (match) {
-                readInt(yPtr, i, y_full);
+                keyhunt::common::ReadBigInt(yPtr, i, y_full);
             }
-            
-            EmitCandidate(match, i, true, x, y_full, digest);
+
+            keyhunt::common::emitCandidate(match, i, true, x, y_full, digest);
         }
     }
 }

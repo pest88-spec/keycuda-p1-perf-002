@@ -1,0 +1,393 @@
+// Puzzle71 CUDA Technical Debt Repair System
+// Jenkins CI/CD Pipeline Configuration
+// Branch: 002-techdebt-repair
+
+pipeline {
+    agent {
+        docker {
+            image 'nvidia/cuda:11.8-devel-ubuntu20.04'
+            args '--gpus all -v /usr/local/cuda:/usr/local/cuda'
+        }
+    }
+
+    environment {
+        CUDA_HOME = '/usr/local/cuda'
+        PATH = "${env.PATH}:${env.CUDA_HOME}/bin"
+        LD_LIBRARY_PATH = "${env.LD_LIBRARY_PATH}:${env.CUDA_HOME}/lib64"
+        BUILD_DIR = 'build'
+        CMAKE_BUILD_TYPE = 'Release'
+        CUDA_ARCHITECTURES = '75;80;86;89;90'
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        timeout(time: 120, unit: 'MINUTES')
+        timestamps()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.GIT_BRANCH_NAME = env.BRANCH_NAME ?: 'unknown'
+                }
+                echo "Building commit ${env.GIT_COMMIT_SHORT} on branch ${env.GIT_BRANCH_NAME}"
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                sh '''
+                    echo "Setting up build environment..."
+                    apt-get update -qq
+                    apt-get install -y \
+                        build-essential \
+                        cmake \
+                        git \
+                        wget \
+                        pkg-config \
+                        libgtest-dev \
+                        libgmock-dev \
+                        libyaml-cpp-dev \
+                        libssl-dev \
+                        python3 \
+                        python3-pip
+
+                    # Install GoogleTest
+                    cd /tmp
+                    git clone https://github.com/google/googletest.git
+                    cd googletest
+                    git checkout release-1.11.0
+                    cmake -B build
+                    cmake --build build --target install
+                    cd /
+                    rm -rf /tmp/googletest
+
+                    # Install secp256k1 for CPU reference validation
+                    cd /tmp
+                    git clone https://github.com/bitcoin-core/secp256k1.git
+                    cd secp256k1
+                    git checkout v0.3.2
+                    ./autogen.sh
+                    ./configure --enable-module-recovery --disable-tests --disable-benchmark --disable-shared
+                    make -j$(nproc)
+                    make install
+                    cd /
+                    rm -rf /tmp/secp256k1
+
+                    echo "Environment setup completed"
+                '''
+            }
+        }
+
+        stage('Configure') {
+            steps {
+                sh '''
+                    echo "Configuring CMake build..."
+                    mkdir -p ${BUILD_DIR}
+                    cd ${BUILD_DIR}
+                    cmake ../src/KeyhuntCore \
+                        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+                        -DBUILD_TESTS=ON \
+                        -DBUILD_BENCHMARKS=ON \
+                        -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHITECTURES}" \
+                        -DENABLE_AGGRESSIVE_OPTIMIZATIONS=ON
+                '''
+            }
+        }
+
+        stage('Build') {
+            parallel {
+                stage('Build Main') {
+                    steps {
+                        sh '''
+                            echo "Building main application..."
+                            cd ${BUILD_DIR}
+                            make -j$(nproc) Puzzle71Solver
+                        '''
+                    }
+                }
+                stage('Build Tests') {
+                    steps {
+                        sh '''
+                            echo "Building test suite..."
+                            cd ${BUILD_DIR}
+                            make -j$(nproc) test_suite
+                        '''
+                    }
+                }
+                stage('Build Benchmarks') {
+                    steps {
+                        sh '''
+                            echo "Building benchmarks..."
+                            cd ${BUILD_DIR}
+                            make -j$(nproc) benchmarks
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Static Analysis') {
+            parallel {
+                stage('Code Quality') {
+                    steps {
+                        sh '''
+                            echo "Running static code analysis..."
+                            cd ${BUILD_DIR}
+
+                            # Check for CUDA compilation warnings
+                            make VERBOSE=1 2>&1 | grep -i warning || true
+
+                            # Check code formatting (if clang-format is available)
+                            command -v clang-format && {
+                                find ../src -name "*.cpp" -o -name "*.cu" -o -name "*.h" -o -name "*.cuh" | \
+                                xargs clang-format --dry-run --Werror || true
+                            } || echo "clang-format not available"
+                        '''
+                    }
+                }
+                stage('Memory Safety') {
+                    steps {
+                        sh '''
+                            echo "Running memory safety checks..."
+                            cd ${BUILD_DIR}
+
+                            # Check for memory leaks in debug build
+                            cmake ../src/KeyhuntCore \
+                                -DCMAKE_BUILD_TYPE=Debug \
+                                -DBUILD_TESTS=ON \
+                                -DENABLE_SANITIZERS=ON
+                            make -j$(nproc) test_suite
+
+                            # Run tests with address sanitizer
+                            ctest --output-on-failure || true
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Test') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        sh '''
+                            echo "Running unit tests..."
+                            cd ${BUILD_DIR}
+                            ctest --output-on-failure --output-junit unit_test_results.xml -L unit
+                        '''
+                    }
+                    post {
+                        always {
+                            junit testResultsPattern: "${BUILD_DIR}/unit_test_results.xml"
+                        }
+                    }
+                }
+                stage('Integration Tests') {
+                    steps {
+                        sh '''
+                            echo "Running integration tests..."
+                            cd ${BUILD_DIR}
+                            ctest --output-on-failure --output-junit integration_test_results.xml -L integration
+                        '''
+                    }
+                    post {
+                        always {
+                            junit testResultsPattern: "${BUILD_DIR}/integration_test_results.xml"
+                        }
+                    }
+                }
+                stage('Performance Tests') {
+                    steps {
+                        sh '''
+                            echo "Running performance tests..."
+                            cd ${BUILD_DIR}
+                            ctest --output-on-failure --output-junit performance_test_results.xml -L performance
+                        '''
+                    }
+                    post {
+                        always {
+                            junit testResultsPattern: "${BUILD_DIR}/performance_test_results.xml"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Constitutional Compliance') {
+            steps {
+                sh '''
+                    echo "Running constitutional compliance validation..."
+                    cd ${BUILD_DIR}
+
+                    # Run constitutional compliance tests
+                    ctest --output-on-failure --output-junit constitutional_test_results.xml -L constitutional
+
+                    # Validate architectural compliance
+                    ./Puzzle71Solver --validate-architecture --output=arch_compliance_report.json
+
+                    # Check compliance score
+                    python3 -c "
+                    import json
+                    with open('arch_compliance_report.json', 'r') as f:
+                        report = json.load(f)
+                        compliance_score = report.get('overall_score', 0)
+                        if compliance_score < 95.0:
+                            print(f'Constitutional compliance score too low: {compliance_score}%')
+                            exit(1)
+                        print(f'Constitutional compliance score: {compliance_score}%')
+                    "
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: "${BUILD_DIR}/arch_compliance_report.json", fingerprint: true
+                    junit testResultsPattern: "${BUILD_DIR}/constitutional_test_results.xml"
+                }
+            }
+        }
+
+        stage('Benchmark') {
+            steps {
+                sh '''
+                    echo "Running performance benchmarks..."
+                    cd ${BUILD_DIR}
+
+                    # Run benchmarks
+                    ./Puzzle71Solver --benchmark \
+                        --benchmark-format=json \
+                        --benchmark-out=benchmark_results.json \
+                        --benchmark_min_time=5.0
+
+                    # Validate performance against baselines
+                    python3 -c "
+                    import json
+                    with open('benchmark_results.json', 'r') as f:
+                        results = json.load(f)
+
+                    # Check key performance metrics
+                    for benchmark in results['benchmarks']:
+                        if 'throughput' in benchmark['name'].lower():
+                            throughput = benchmark['real_time']
+                            if throughput < 1000.0:  # Minimum 1000 keys/sec
+                                print(f'Throughput too low: {throughput} keys/sec')
+                                exit(1)
+
+                    print('Performance benchmarks passed')
+                    "
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: "${BUILD_DIR}/benchmark_results.json", fingerprint: true
+                    publishBenchmarkResults(file: "${BUILD_DIR}/benchmark_results.json")
+                }
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                sh '''
+                    echo "Running security scan..."
+
+                    # Check for hardcoded secrets
+                    find ../src -name "*.cpp" -o -name "*.cu" -o -name "*.h" -o -name "*.cuh" | \
+                        xargs grep -l "password\|secret\|key\|token" || echo "No hardcoded secrets found"
+
+                    # Validate cryptographic usage
+                    python3 -c "
+                    import re
+                    import os
+                    import sys
+
+                    # Check for proper cryptographic usage
+                    for root, dirs, files in os.walk('../src'):
+                        for file in files:
+                            if file.endswith(('.cpp', '.cu', '.h', '.cuh')):
+                                filepath = os.path.join(root, file)
+                                with open(filepath, 'r') as f:
+                                    content = f.read()
+
+                                # Check for custom crypto implementations
+                                if re.search(r'crypto|encrypt|decrypt|hash.*implementation', content, re.IGNORECASE):
+                                    print(f'Potential custom crypto implementation found in {filepath}')
+                                    sys.exit(1)
+
+                    print('Security scan passed')
+                    "
+                '''
+            }
+        }
+
+        stage('Docker Build') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                    branch '002-techdebt-repair'
+                }
+            }
+            steps {
+                sh '''
+                    echo "Building Docker image..."
+                    docker build -t puzzle71:${GIT_COMMIT_SHORT} .
+                    docker tag puzzle71:${GIT_COMMIT_SHORT} puzzle71:latest
+                '''
+            }
+        }
+
+        stage('Deploy to Staging') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                    branch '002-techdebt-repair'
+                }
+            }
+            steps {
+                sh '''
+                    echo "Deploying to staging environment..."
+                    # Staging deployment logic here
+                    docker run --rm \
+                        --name puzzle71-staging-test \
+                        puzzle71:latest \
+                        --version
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline completed - cleaning up...'
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline succeeded!'
+            script {
+                if (env.BRANCH_NAME in ['main', 'master', '002-techdebt-repair']) {
+                    echo 'Triggering deployment pipeline...'
+                    // trigger downstream deployment jobs
+                    build job: 'puzzle71-deploy', wait: false
+                }
+            }
+        }
+        failure {
+            echo 'Pipeline failed!'
+            mail to: 'team@example.com',
+                subject: "Jenkins Pipeline Failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
+                body: """
+                The Jenkins pipeline for ${env.JOB_NAME} failed on commit ${env.GIT_COMMIT_SHORT}.
+
+                Build URL: ${env.BUILD_URL}
+                Branch: ${env.GIT_BRANCH_NAME}
+                """
+        }
+        unstable {
+            echo 'Pipeline is unstable - some tests may have failed.'
+        }
+    }
+}

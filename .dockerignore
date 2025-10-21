@@ -1,0 +1,86 @@
+# Docker ignore for Keyhunt-CUDA
+# Exclude files not needed in Docker container
+
+# Git directories
+.git
+.gitignore
+
+# AI and tool directories
+.claude/
+.codex/
+.specify/
+.gemini/
+
+# Build artifacts (will be built in container)
+build/
+_deps/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.o
+*.so
+*.a
+*.lib
+Puzzle71Solver
+*.exe
+
+# Documentation and specs
+docs/
+specs/
+*.md
+!README.md
+
+# Logs and temporary data
+logs/
+benchmarks/
+digests/
+telemetry/
+*.log
+
+# Cache directories
+__pycache__/
+.*cache*/
+.ipynb_checkpoints/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+test_*
+testing/
+test_results/
+
+# Backup directories
+*_backup/
+backup/
+scripts_backup/
+
+# Python and Node.js (if used)
+venv/
+env/
+node_modules/
+
+# Performance data
+*.prof
+*.ncu-rep
+*.nsys-rep
+perf.data
+
+# CUDA intermediate files
+*.cubin
+*.ptx
+*.fatbin
+
+# Credentials and sensitive files
+*.key
+*.pem
+gha-creds-*.json
+singwarp/
