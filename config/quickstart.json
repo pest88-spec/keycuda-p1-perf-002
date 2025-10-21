@@ -1,0 +1,31 @@
+{
+  "version": "3.0.0",
+  "deployment": {
+    "environment": "quickstart",
+    "timestamp": "2025-10-21T20:25:00Z"
+  },
+  "cuda": {
+    "devices": "all",
+    "architectures": ["75", "80", "86"],
+    "optimization_level": "O3"
+  },
+  "performance": {
+    "target_utilization": 90,
+    "batch_size": 1000000,
+    "max_threads_per_block": 1024
+  },
+  "validation": {
+    "constitutional_compliance": {
+      "enabled": true,
+      "version": "5.5"
+    },
+    "ecc_validation": {
+      "enabled": true,
+      "precision_threshold": 1e-10
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "console_output": true
+  }
+}
