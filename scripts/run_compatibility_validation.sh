@@ -218,7 +218,7 @@ check_prerequisites() {
     # Check build directory
     if [[ ! -d "$BUILD_DIR" ]]; then
         log_error "Build directory not found: $BUILD_DIR"
-        log_info "Please run 'mkdir -p build && cd build && cmake ../src/KeyhuntCore && make' first"
+        log_info "Please run 'mkdir -p build && cd build && cmake .. && make' first"
         exit 1
     fi
 

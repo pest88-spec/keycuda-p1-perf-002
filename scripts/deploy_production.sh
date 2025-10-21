@@ -150,7 +150,7 @@ build_production_binaries() {
 
     # Configure CMake for production
     log_info "Configuring CMake for production build..."
-    cmake ../src/KeyhuntCore \
+    cmake .. \
         -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
         -DCMAKE_INSTALL_PREFIX="$DEPLOY_DIR" \
         -DCMAKE_CUDA_ARCHITECTURES="75;86;89;90" \

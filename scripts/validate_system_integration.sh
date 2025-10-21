@@ -99,7 +99,7 @@ build_project() {
 
     # Configure with CMake
     log_info "Configuring with CMake..."
-    if ! cmake ../src/KeyhuntCore -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON; then
+    if ! cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON; then
         log_error "CMake configuration failed"
         return 1
     fi

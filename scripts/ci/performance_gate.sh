@@ -287,7 +287,7 @@ validate_configuration() {
         log_error "Performance test binary not found: $PERFORMANCE_TEST_BINARY"
         log_info "Build the project first:"
         log_info "  mkdir -p build && cd build"
-        log_info "  cmake ../src/KeyhuntCore -DBUILD_BENCHMARKS=ON"
+        log_info "  cmake .. -DBUILD_BENCHMARKS=ON"
         log_info "  make -j\$(nproc)"
         return 3
     fi

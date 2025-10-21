@@ -79,7 +79,7 @@ build_project() {
 
     # Configure CMake
     log_info "Configuring CMake..."
-    cmake ../src/KeyhuntCore \
+    cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_TESTS=ON \
         -DCUDA_ARCHITECTURES="75;80;86;89;90" \

@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-VERSION="2.0.0"
+VERSION="3.0.0"
 
 # Default configuration
 DEPLOYMENT_TYPE="${DEPLOYMENT_TYPE:-local}"
@@ -110,7 +110,7 @@ quick_build() {
 
     # Configure with optimized settings for quick build
     log_info "Configuring build..."
-    cmake ../src/KeyhuntCore \
+    cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CUDA_ARCHITECTURES="75;86" \
         -DBUILD_TESTS=OFF \

@@ -181,7 +181,7 @@ fi
 if directory_exists "build" && [[ -f "../src/KeyhuntCore/CMakeLists.txt" ]]; then
     echo -e "${YELLOW}Testing CMake configuration...${NC}"
     if cd build 2>/dev/null; then
-        if cmake ../src/KeyhuntCore -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1; then
+        if cmake .. -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1; then
             log_result "CMake Configuration" "PASS" "CMake configuration successful"
 
             # Test build

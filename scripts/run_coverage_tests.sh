@@ -336,7 +336,7 @@ build_with_coverage() {
     # Reconfigure if necessary
     if [[ ! -f "Makefile" ]] || [[ "$REBUILD_NEEDED" == "true" ]]; then
         log_info "Reconfiguring CMake with coverage flags..."
-        cmake ../src/KeyhuntCore \
+        cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_CXX_FLAGS="--coverage -g -O0" \
             -DCMAKE_C_FLAGS="--coverage -g -O0" \
