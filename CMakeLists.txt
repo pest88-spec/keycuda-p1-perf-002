@@ -278,6 +278,14 @@ endif()
 add_executable(Puzzle71Solver ${PUZZLE71_CORE_SOURCES})
 set_target_properties(Puzzle71Solver PROPERTIES ENABLE_EXPORTS ON)
 
+# Fix library search path to prioritize system libraries over miniconda
+if(DEFINED ENV{CONDA_PREFIX})
+  set_target_properties(Puzzle71Solver PROPERTIES
+    INSTALL_RPATH "/usr/lib/x86_64-linux-gnu;/usr/local/cuda/lib64"
+    BUILD_WITH_INSTALL_RPATH TRUE
+  )
+endif()
+
 # Mark device_buffers.cpp as CUDA source (contains CUDA kernels)
 set_source_files_properties(src/compute/gpu/device_buffers.cpp PROPERTIES LANGUAGE CUDA)
 
@@ -526,6 +534,7 @@ if(AVAILABLE_SECP256K1_ZKP_SOURCES)
   # Create a separate static library for secp256k1-zkp to avoid CUDA device linking issues
   # This library is only used when bitcoin-core secp256k1 is not available
   add_library(secp256k1_zkp_extracted STATIC ${SECP256K1_ZKP_SOURCES})
+  set_target_properties(secp256k1_zkp_extracted PROPERTIES LINKER_LANGUAGE "C")
   target_include_directories(secp256k1_zkp_extracted PUBLIC
     src/extracted/secp256k1-zkp/include
     src/extracted/secp256k1-zkp/src
