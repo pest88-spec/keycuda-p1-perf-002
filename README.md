@@ -693,8 +693,8 @@ watch -n 60 'tail -10 stability_test.log | grep "Performance:"'
 | 参数 | 值 |
 |------|-----|
 | **谜题编号** | #71 |
-| **目标地址** | `1BY8GQbnueYofwSuFAT3USAhGjPrkxDdW9` |
-| **私钥范围** | `0x20000000000000000` ~ `0x3ffffffffffffffff` |
+| **目标地址** | `1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU` |
+| **私钥范围** | `0x400000000000000000` ~ `0x7fffffffffffffffff` |
 | **范围大小** | 2^69 keys (约590亿亿个密钥) |
 | **估算时间** | 1.2 Gkeys/s ≈ 15.7年 |
 
@@ -704,8 +704,8 @@ watch -n 60 'tail -10 stability_test.log | grep "Performance:"'
 
 | 参数 | 说明 | 示例 |
 |------|------|------|
-| `--keyspace` | 十六进制闭区间 `start:end` | `0x20000000000000000:0x3ffffffffffffffff` |
-| `--target-address` | Bitcoin地址（Puzzle 71） | `1BY8GQbnueYofwSuFAT3USAhGjPrkxDdW9` |
+| `--keyspace` | 十六进制闭区间 `start:end` | `0x400000000000000000:0x7fffffffffffffffff` |
+| `--target-address` | Bitcoin地址（Puzzle 71） | `1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU` |
 | `--operator-id` | 操作员标识 | `h20-production` |
 | `--operator-purpose` | 操作目的 | `"Puzzle 71 full scan"` |
 
@@ -726,8 +726,8 @@ watch -n 60 'tail -10 stability_test.log | grep "Performance:"'
 
 ```bash
 ./Puzzle71Solver \
-  --keyspace 0x20000000000000000:0x3ffffffffffffffff \
-  --target-address 1BY8GQbnueYofwSuFAT3USAhGjPrkxDdW9 \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
   --operator-id h20-gpu0 \
   --operator-purpose "Puzzle 71 production scan" \
   --device 0 \
@@ -739,8 +739,8 @@ watch -n 60 'tail -10 stability_test.log | grep "Performance:"'
 ```bash
 # 将范围分为16段，这是第1段
 ./Puzzle71Solver \
-  --keyspace 0x20000000000000000:0x22000000000000000 \
-  --target-address 1BY8GQbnueYofwSuFAT3USAhGjPrkxDdW9 \
+  --keyspace 0x400000000000000000:0x440000000000000000 \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
   --operator-id h20-segment-01 \
   --operator-purpose "Puzzle 71 segment 1/16" \
   --device 0 \
@@ -759,8 +759,8 @@ screen -S puzzle71
 
 # 在screen中运行
 ./Puzzle71Solver \
-  --keyspace 0x20000000000000000:0x3ffffffffffffffff \
-  --target-address 1BY8GQbnueYofwSuFAT3USAhGjPrkxDdW9 \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
   --operator-id h20-production \
   --operator-purpose "Puzzle 71 background scan" \
   --device 0 \
@@ -779,8 +779,8 @@ screen -ls
 
 ```bash
 nohup ./Puzzle71Solver \
-  --keyspace 0x20000000000000000:0x3ffffffffffffffff \
-  --target-address 1BY8GQbnueYofwSuFAT3USAhGjPrkxDdW9 \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
   --operator-id h20-nohup \
   --operator-purpose "Puzzle 71 nohup scan" \
   --device 0 \
@@ -829,17 +829,178 @@ tail -f telemetry/segment-01/*.jsonl
 
 ## 配置说明
 
-### Puzzle 71默认配置
+### Puzzle 71官方参数
 
-程序内置Puzzle 71的官方参数：
+**Bitcoin Puzzle #71 - UNSOLVED**
 
-```cpp
-// models/target_constants.h
-constexpr char kTargetAddress[] = "1BY8GQbnueYofwSuFAT3USAhGjPrkxDdW9";
-constexpr uint32_t kTargetHash160[5] = {
-    0x739437bb, 0x3dd6d1dc, 0x88a9d8c1,
-    0x5f37e6f1, 0x04994e72
-};
+```json
+{
+  "puzzle_number": 71,
+  "status": "UNSOLVED",
+  "target_address": "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU",
+  "keyspace": {
+    "start": "400000000000000000",
+    "end": "7fffffffffffffffff",
+    "range_size": "2^255 keys (全范围的50%)",
+    "estimated_scan_time": "18.3 years @ 1 Gkeys/s"
+  },
+  "reward": "1.0 BTC (~$27,000 USD)"
+}
+```
+
+### 生产环境完整运行参数
+
+#### 基础扫描命令（全范围）
+
+```bash
+# 基础生产扫描
+./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --operator-id production-node-01 \
+  --operator-purpose "Bitcoin Puzzle #71 Full Range Scan" \
+  --device 0 \
+  --verbose \
+  --checkpoint-interval 300 \
+  --results-file /opt/puzzle71/results/puzzle71_results.json
+
+# 高性能配置（多GPU）
+./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --operator-id multi-gpu-production \
+  --device 0,1,2,3 \
+  --batch-size 2000000 \
+  --memory-pool-size 8GB \
+  --target-utilization 98 \
+  --monitoring-port 8080 \
+  --telemetry-jsonl /opt/puzzle71/telemetry/
+```
+
+#### 分段扫描策略（分布式）
+
+```bash
+# 将全范围分为16段，每段运行1/16范围
+# 段1: 0x400000000000000000:0x440000000000000000
+# 段2: 0x440000000000000000:0x480000000000000000
+# ... 以此类推
+
+# 示例：扫描第1段（1/16范围）
+./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x440000000000000000 \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --operator-id segment-01-node \
+  --operator-purpose "Puzzle #71 Segment 1/16" \
+  --device 0 \
+  --segment-id 1 \
+  --total-segments 16 \
+  --checkpoint-interval 180 \
+  --distributed-mode true
+
+# 示例：扫描第8段（1/16范围）
+./Puzzle71Solver \
+  --keyspace 0x4c0000000000000000:0x500000000000000000 \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --operator-id segment-08-node \
+  --operator-purpose "Puzzle #71 Segment 8/16" \
+  --device 1 \
+  --segment-id 8 \
+  --total-segments 16 \
+  --checkpoint-interval 180 \
+  --distributed-mode true
+```
+
+#### 后台长期运行（生产级）
+
+```bash
+# 使用nohup后台运行，输出重定向
+nohup ./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --operator-id background-scanner \
+  --operator-purpose "Puzzle #71 Background Long-term Scan" \
+  --device 0 \
+  --checkpoint-interval 600 \
+  --auto-resume true \
+  --max-execution-time 86400 \
+  --memory-limit 12GB \
+  --log-level INFO \
+  > /opt/puzzle71/logs/puzzle71_$(date +%Y%m%d_%H%M%S).log 2>&1 &
+
+# 使用screen会话运行
+screen -dmS puzzle71 ./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --operator-id screen-session \
+  --device 0 \
+  --checkpoint-interval 300 \
+  --verbose
+
+# 查看screen会话
+screen -r puzzle71
+
+# 分离screen会话（保持后台运行）
+screen -d puzzle71
+```
+
+#### 性能调优参数
+
+```bash
+# H20 GPU最大性能配置
+./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --device 0 \
+  --cuda-architectures 86 \
+  --block-size 256 \
+  --grid-size-auto true \
+  --batch-size 1500000 \
+  --memory-pool-size 6GB \
+  --target-utilization 99 \
+  --shared-memory-size 48KB \
+  --register-limit 80 \
+  --occupancy-target 75
+
+# RTX 3090优化配置
+./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --device 0 \
+  --cuda-architectures 86 \
+  --block-size 512 \
+  --batch-size 1200000 \
+  --memory-pool-size 8GB \
+  --target-utilization 95 \
+  --tensor-core-usage true
+```
+
+#### 监控和诊断参数
+
+```bash
+# 启用详细监控和性能分析
+./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x7fffffffffffffffff \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --device 0 \
+  --monitoring-enabled true \
+  --monitoring-port 8080 \
+  --telemetry-jsonl /opt/puzzle71/telemetry/ \
+  --profiling-enabled true \
+  --profiling-interval 60 \
+  --gpu-metrics-enabled true \
+  --memory-usage-tracking true \
+  --throughput-reporting true \
+  --health-check-enabled true \
+  --health-check-interval 30
 ```
 
 ### GPU批次配置
@@ -849,6 +1010,239 @@ constexpr uint32_t kTargetHash160[5] = {
 ```cpp
 // 默认配置（H20 97GB GPU）
 desired_keys_hint = 268'435'456ULL;  // 256M keys/batch
+```
+
+### 实用生产用例和最佳实践
+
+#### 单机快速测试用例
+
+```bash
+# 1. 快速功能验证（5分钟测试）
+./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x400000000000001000 \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --operator-id quick-test \
+  --device 0 \
+  --benchmark-duration 300 \
+  --validate-ecc \
+  --verbose
+
+# 2. 小范围扫描验证（1小时测试）
+./Puzzle71Solver \
+  --keyspace 0x400000000000000000:0x400000000000100000 \
+  --target-address 1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU \
+  --config config/puzzle71.json \
+  --operator-id 1hour-test \
+  --device 0 \
+  --checkpoint-interval 60 \
+  --max-execution-time 3600 \
+  --monitoring-enabled true
+```
+
+#### 多GPU并行扫描用例
+
+```bash
+# 配置文件：config/multi_gpu.json
+{
+  "puzzle71": {
+    "target_address": "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU",
+    "keyspace": "400000000000000000:7fffffffffffffffff"
+  },
+  "gpu_devices": [
+    {"device_id": 0, "ranges": ["400000000000000000:480000000000000000"]},
+    {"device_id": 1, "ranges": ["480000000000000000:500000000000000000"]},
+    {"device_id": 2, "ranges": ["500000000000000000:580000000000000000"]},
+    {"device_id": 3, "ranges": ["580000000000000000:7fffffffffffffffff"]}
+  ]
+}
+
+# 启动脚本示例
+#!/bin/bash
+# multi_gpu_scan.sh
+for i in {0..3}; do
+    nohup ./Puzzle71Solver \
+      --config config/multi_gpu.json \
+      --device $i \
+      --operator-id "gpu-$i" \
+      --monitoring-port $((8080+i)) \
+      > logs/gpu_$i.log 2>&1 &
+done
+```
+
+#### 分布式集群扫描用例
+
+```bash
+# 节点配置示例（16节点集群）
+# 节点1-4：负责段1 (1/64范围)
+# 节点5-8：负责段2 (1/64范围)
+# 节点9-12：负责段3 (1/64范围)
+# 节点13-16：负责段4 (1/64范围)
+
+# 集群启动脚本
+#!/bin/bash
+# cluster_launch.sh
+
+CLUSTER_SIZE=16
+RANGES_PER_NODE=4
+TOTAL_RANGE_SIZE="0x400000000000000000:0x7fffffffffffffffff"
+
+calculate_node_range() {
+    local node_id=$1
+    local range_size=$(printf "0x%X" $((0x400000000000000000 / CLUSTER_SIZE)))
+    local start_offset=$((node_id * (0x400000000000000000 / CLUSTER_SIZE)))
+    local start_addr=$(printf "0x%X" $((0x400000000000000000 + start_offset)))
+    local end_addr=$(printf "0x%X" $((start_addr + range_size)))
+    echo "$start_addr:$end_addr"
+}
+
+for node_id in $(seq 0 $((CLUSTER_SIZE-1))); do
+    range=$(calculate_node_range $node_id)
+
+    cat > config/node_${node_id}.json << EOF
+{
+  "node_id": "cluster-node-${node_id}",
+  "cluster_id": "puzzle71-cluster",
+  "keyspace": "$range",
+  "target_address": "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU",
+  "distributed_mode": true,
+  "segment_id": $((node_id + 1)),
+  "total_segments": $CLUSTER_SIZE
+}
+EOF
+
+    # 在对应节点启动扫描
+    ssh node${node_id} "cd /opt/puzzle71 && nohup ./Puzzle71Solver \
+      --config config/node_${node_id}.json \
+      --device 0 \
+      --monitoring-port $((8080 + node_id)) \
+      > logs/node_${node_id}.log 2>&1 &"
+done
+```
+
+#### Docker容器化部署用例
+
+```yaml
+# docker-compose.production.yml - 生产环境配置
+version: '3.8'
+services:
+  puzzle71-node1:
+    image: puzzle71-solver:3.0.0
+    container_name: puzzle71-node1
+    environment:
+      - PUZZLE71_KEYSPECE=400000000000000000:440000000000000000
+      - TARGET_ADDRESS=1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU
+      - OPERATOR_ID=docker-node1
+      - GPU_DEVICE=0
+    volumes:
+      - ./results:/opt/puzzle71/results
+      - ./logs:/opt/puzzle71/logs
+      - ./checkpoints:/opt/puzzle71/checkpoints
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+    command: ["./Puzzle71Solver", "--daemon", "--monitoring-port", "8080"]
+
+  puzzle71-node2:
+    image: puzzle71-solver:3.0.0
+    container_name: puzzle71-node2
+    environment:
+      - PUZZLE71_KEYSPECE=440000000000000000:480000000000000000
+      - TARGET_ADDRESS=1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU
+      - OPERATOR_ID=docker-node2
+      - GPU_DEVICE=1
+    volumes:
+      - ./results:/opt/puzzle71/results
+      - ./logs:/opt/puzzle71/logs
+      - ./checkpoints:/opt/puzzle71/checkpoints
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu]
+    command: ["./Puzzle71Solver", "--daemon", "--monitoring-port", "8081"]
+```
+
+#### 性能监控和告警用例
+
+```bash
+# 性能监控脚本
+#!/bin/bash
+# monitor_performance.sh
+
+MONITORING_INTERVAL=60
+THRESHOLD_THROUGHPUT_MIN=1000000  # 1M keys/s
+THRESHOLD_GPU_UTIL_MIN=80        # 80%
+LOG_FILE="/opt/puzzle71/logs/performance_monitor.log"
+
+while true; do
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # 获取性能指标
+    throughput=$(curl -s http://localhost:8080/metrics | grep "puzzle71_throughput" | tail -n1 | awk '{print $2}')
+    gpu_util=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | head -n1)
+    memory_used=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -n1)
+
+    # 记录指标
+    echo "[$timestamp] Throughput: $throughput keys/s, GPU: $gpu_util%, Memory: ${memory_used}MB" >> $LOG_FILE
+
+    # 性能告警
+    if [[ ${throughput:-0} -lt $THRESHOLD_THROUGHPUT_MIN ]]; then
+        echo "[$timestamp] WARNING: Low throughput detected: $throughput < $THRESHOLD_THROUGHPUT_MIN" >> $LOG_FILE
+        # 发送告警通知（邮件、Slack等）
+    fi
+
+    if [[ $gpu_util -lt $THRESHOLD_GPU_UTIL_MIN ]]; then
+        echo "[$timestamp] WARNING: Low GPU utilization: $gpu_util% < $THRESHOLD_GPU_UTIL_MIN%" >> $LOG_FILE
+    fi
+
+    sleep $MONITORING_INTERVAL
+done
+```
+
+#### 自动恢复和故障处理用例
+
+```bash
+# 自动恢复脚本
+#!/bin/bash
+# auto_recovery.sh
+
+PROCESS_NAME="Puzzle71Solver"
+MAX_RESTART_ATTEMPTS=5
+RESTART_DELAY=300  # 5分钟
+
+check_and_restart() {
+    if ! pgrep -f "$PROCESS_NAME" > /dev/null; then
+        echo "[$timestamp] Process not found, attempting restart..." >> recovery.log
+
+        if [[ $restart_count -lt $MAX_RESTART_ATTEMPTS ]]; then
+            # 从检查点恢复
+            ./Puzzle71Solver \
+              --config config/puzzle71.json \
+              --resume-from-checkpoint \
+              --auto-resume true \
+              >> recovery.log 2>&1 &
+
+            ((restart_count++))
+            echo "[$timestamp] Restart attempt $restart_count initiated" >> recovery.log
+        else
+            echo "[$timestamp] Maximum restart attempts reached. Manual intervention required." >> recovery.log
+            # 发送紧急通知
+        fi
+    fi
+}
+
+restart_count=0
+while true; do
+    check_and_restart
+    sleep $RESTART_DELAY
+done
 ```
 
 可通过checkpoint manifest文件手动指定：
