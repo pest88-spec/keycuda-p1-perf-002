@@ -59,7 +59,8 @@ docs/reviews/COMPREHENSIVE_*.md
 docs/reviews/specification-analysis-*.md
 
 # AI guidance files (local use only)
-specs/
+# specs/ directory allowed for current implementation work
+specs/!001-specify-scripts-bash/
 
 # Build artifacts
 build/
@@ -207,3 +208,6 @@ state/
 *.ilk
 *.exp
 *.map
+
+.gemini/
+gha-creds-*.json

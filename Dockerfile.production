@@ -1,0 +1,108 @@
+# Puzzle71 Technical Debt Repair - Production Docker Image
+# T080: Create deployment scripts and Docker production images
+# Multi-stage build for optimized production deployment
+
+# Build stage - Ubuntu 22.04 with CUDA development environment
+FROM nvidia/cuda:12.3.2-devel-ubuntu22.04 AS builder
+
+# Metadata
+LABEL maintainer="Puzzle71 Development Team"
+LABEL description="Puzzle71 CUDA Solver v2.0 - Production Ready"
+LABEL version="2.0.0"
+LABEL license="MIT"
+LABEL documentation="https://github.com/puzzle71/PuzzleKeyhunt/docs"
+
+# Security-focused environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+ENV CUDA_ARCHITECTURES=75;86;89;90
+ENV CMAKE_BUILD_TYPE=Release
+ENV PUZZLE71_VERSION=2.0.0
+ENV PUZZLE71_ENV=production
+ENV LOG_LEVEL=INFO
+
+# Performance and security environment variables
+ENV CUDA_DEVICE_ORDER=PCI_BUS_ID
+ENV CUDA_LAUNCH_BLOCKING=0
+ENV CUDA_MANAGED_FORCE_DEVICE_ALLOC=1
+ENV MALLOC_ARENA_MAX=2
+ENV OMP_NUM_THREADS=4
+
+# Install only production-critical dependencies
+RUN apt-get update && apt-get install -y \
+    # Minimal runtime dependencies
+    libssl3 \
+    libjsoncpp25 \
+    libcurl4 \
+    libz1 \
+    \
+    # Essential utilities
+    ca-certificates \
+    gnupg \
+    curl \
+    jq \
+    wget \
+    \
+    # Process monitoring
+    htop \
+    procps \
+    \
+    # Security updates
+    unattended-upgrades \
+    \
+    # Clean up for minimal attack surface
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
+
+# Create non-root puzzle71 user with limited privileges
+RUN groupadd -r puzzle71 \
+    && useradd -r -g puzzle71 -d /opt/puzzle71 -s /sbin/nologin puzzle71 \
+    && mkdir -p /opt/puzzle71/{config,data,results,logs} \
+    && chown -R puzzle71:puzzle71 /opt/puzzle71
+
+# Set working directory
+WORKDIR /opt/puzzle71
+
+# Copy production application binaries (assumes pre-built)
+COPY --from=builder /opt/puzzle71/build/Puzzle71Solver ./bin/
+COPY --from=builder /opt/puzzle71/build/lib ./lib/
+COPY --from=builder /opt/puzzle71/src/KeyhuntCore/common ./csrc/
+
+# Copy configuration templates
+COPY docker/production/config.yaml.template ./config/
+COPY docker/production/data/*.template ./data/
+
+# Copy production scripts
+COPY docker/production/scripts/*.sh ./scripts/
+RUN chmod +x ./scripts/*.sh
+
+# Copy health check script
+COPY docker/production/health_check.sh ./health_check.sh
+RUN chmod +x ./health_check.sh
+
+# Set proper ownership and permissions
+RUN chown -R puzzle71:puzzle71 /opt/puzzle71 \
+    && chmod -R 755 /opt/puzzle71 \
+    && chmod -R 644 /opt/puzzle71/config/* \
+    && chmod -R 644 /opt/puzzle71/data/* \
+    && chmod -R 700 /opt/puzzle71/results \
+    && chmod -R 700 /opt/puzzle71/logs
+
+# Switch to non-root user
+USER puzzle71
+
+# Health check configuration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD ./health_check.sh
+
+# Expose metrics port (optional for monitoring)
+EXPOSE 8080
+
+# Volume mounts for persistent data
+VOLUME ["/opt/puzzle71/config", "/opt/puzzle71/data", "/opt/puzzle71/results", "/opt/puzzle71/logs"]
+
+# Default production command
+CMD ["./bin/Puzzle71Solver", "--config", "/opt/puzzle71/config/production.yaml", "--daemon"]

@@ -6,8 +6,6 @@
 #include "compute/gpu/device_buffers.h"
 #include "compute/gpu/device_memory.h"
 #include "compute/gpu/device_results.h"
-#include "CudaKeySearchDevice/CudaDeviceKeys.h"
-#include "KeyFinderLib/KeySearchTypes.h"
 
 #include <cuda_runtime.h>
 

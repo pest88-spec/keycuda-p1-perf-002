@@ -1,0 +1,29 @@
+# Puzzle71 Technical Debt Repair - Grafana Prometheus Datasource
+# T080: Create deployment scripts and Docker production images
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "5s"
+      queryTimeout: "60s"
+      httpMethod: POST
+    secureJsonData: {}
+
+  - name: Puzzle71-Prometheus
+    type: prometheus
+    access: proxy
+    url: http://puzzle71-solver:8080/metrics
+    isDefault: false
+    editable: true
+    jsonData:
+      timeInterval: "1s"
+      queryTimeout: "30s"
+      httpMethod: POST
+    secureJsonData: {}

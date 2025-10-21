@@ -4,8 +4,6 @@
 #include "compute/gpu/batch_planner.h"
 #include "compare/kernels/hash160_fused.h"
 #include "cuda_runtime.h"
-#include "CudaKeySearchDevice/CudaDeviceKeys.h"
-#include "CudaKeySearchDevice/cudabridge.h"
 // P0-C002: 新增分离的kernel头文件
 #include "kernels/ecc_kernel.h"
 #include "kernels/hash_kernel.h"
@@ -348,7 +346,12 @@ StepResult GpuExecutor::Execute() {
                   << " block=" << config_.block.x
                   << " points/thread=" << config_.points_per_thread << std::endl;
     }
-    auto start = std::chrono::high_resolution_clock::now();
+    // Constitutional v5.5: Use deterministic timing (CUDA events for GPU timing)
+    cudaEvent_t start_event, end_event;
+    CheckCuda(cudaEventCreate(&start_event), "cudaEventCreate start");
+    CheckCuda(cudaEventCreate(&end_event), "cudaEventCreate end");
+
+    CheckCuda(cudaEventRecord(start_event), "cudaEventRecord start");
 
     // P0-C002: 使用分离的kernel以优化寄存器使用
     // 阶段1: ECC点运算 (30个寄存器/线程)
@@ -384,13 +387,24 @@ StepResult GpuExecutor::Execute() {
         throw std::runtime_error(std::string("Hash kernel sync failed: ") + cudaGetErrorString(hash_sync_status));
     }
 
+    // Constitutional v5.5: Record end event and calculate deterministic timing
+    CheckCuda(cudaEventRecord(end_event), "cudaEventRecord end");
+    CheckCuda(cudaEventSynchronize(end_event), "cudaEventSynchronize end");
+
+    float milliseconds = 0;
+    CheckCuda(cudaEventElapsedTime(&milliseconds, start_event, end_event), "cudaEventElapsedTime");
+
     if (verbose_) {
         std::cout << "[debug] Separated kernels completed (ECC + Hash)" << std::endl;
+        std::cout << "[debug] GPU execution time: " << milliseconds << " ms" << std::endl;
     }
-    auto end = std::chrono::high_resolution_clock::now();
 
-    result.elapsed_us = static_cast<std::uint64_t>(
-        std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
+    // Clean up events
+    CheckCuda(cudaEventDestroy(start_event), "cudaEventDestroy start");
+    CheckCuda(cudaEventDestroy(end_event), "cudaEventDestroy end");
+
+    // Constitutional v5.5: Use deterministic GPU timing (milliseconds to microseconds)
+    result.elapsed_us = static_cast<std::uint64_t>(milliseconds * 1000);
 
     if (verbose_) {
         std::cout << "[debug] Kernel completed elapsed_us=" << result.elapsed_us << std::endl;

@@ -1,3 +1,24 @@
+<!-- OPENSPEC:START -->
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -206,6 +227,7 @@ Based on completed user stories, the system provides:
 ### Performance Targets
 
 **Achieved Throughput (Baseline Established):**
+
 - **Turing Architecture**: 1.0 Gkeys/s (RTX 2080 Ti)
 - **Ampere Architecture**: 2.0 Gkeys/s (RTX 3090)
 - **Hopper Architecture**: 3.5 Gkeys/s (H20)
@@ -219,18 +241,21 @@ Based on completed user stories, the system provides:
 ### Performance Optimization Implementation
 
 **Memory Hierarchy Optimization:**
+
 - **Shared Memory Caching**: Precomputed ECC tables loaded into shared memory (≥90% efficiency target)
 - **Memory Coalescing**: Structure-of-Arrays layout with 128-byte alignment
 - **Bank Conflict Elimination**: Padded data structures (68 bytes with 4-byte padding)
 - **Register Optimization**: ≤128 registers per thread for 50%+ occupancy
 
 **Warp-Level Optimization:**
+
 - **Shuffle Instructions**: Register-only communication for reduction operations
 - **Butterfly Reduction**: 5-iteration warp reduction for maximum efficiency
 - **Vote Operations**: Fast warp-wide synchronization
 - **Zero Shared Memory**: Eliminated shared memory bottlenecks
 
 **Parallel Algorithm Implementation:**
+
 - **Thrust Integration**: Parallel prefix scan and reduction operations
 - **CUB BlockScan**: Efficient parallel prefix sum within thread blocks
 - **Parallel Address Generation**: 2-3× speedup for large batch sizes
@@ -281,54 +306,63 @@ The project maintains scientific rigor with deterministic, reproducible operatio
 ### Shared Memory Optimization Strategy
 
 **Bank Conflict Elimination:**
+
 - **PaddedECCPoint Structure**: 68 bytes (17 words × 4 bytes) with coprime bank factor
 - **Coalesced Loading Pattern**: Each thread loads one point sequentially
 - **Synchronization Points**: `__syncthreads()` after shared memory loads
 - **Memory Alignment**: 16-byte alignment for optimal memory bandwidth
 
 **Implementation Files:**
+
 - `src/KeyhuntCore/kernels/shared_memory.cuh` - Shared memory helpers and PaddedECCPoint
 - `src/KeyhuntCore/kernels/ecc_scalar_mul.cu` - Main ECC kernel with shared memory optimization
 
 ### Structure-of-Arrays (SoA) Memory Layout Benefits
 
 **Memory Access Optimization:**
+
 - **Sequential Access**: Consecutive threads access consecutive memory addresses
 - **Vectorized Loads**: `int4` instructions for 16-byte vector operations
 - **Reduced Memory Strides**: Minimizes memory transaction overhead
 - **Improved Cache Utilization**: Better spatial locality for GPU caches
 
 **Implementation Files:**
+
 - `src/KeyhuntCore/gpu/memory_manager.cu` - SoA allocation and management
 - `src/KeyhuntCore/kernels/ecc_scalar_mul.cu` - Refactored to use SoA layout
 
 ### Warp-Level Primitives Usage
 
 **Register-Only Communication:**
+
 - **Shuffle Instructions**: `__shfl_down_sync()` for inter-thread communication
 - **Butterfly Reduction**: 5-iteration warp reduction for max value computation
 - **Zero Shared Memory**: Eliminated shared memory bottlenecks in validation
 - **20× Speed Improvement**: Faster reduction operations
 
 **Implementation Files:**
+
 - `src/KeyhuntCore/kernels/warp_primitives.cuh` - Warp shuffle and reduction primitives
 - `src/KeyhuntCore/kernels/ecc_scalar_mul.cu` - Integrated into validation pipeline
 
 ### Test-First CUDA Development Workflow
 
 **Red-Green-Refactor Cycle:**
+
 1. **Red Phase**: Write failing tests for new functionality
 2. **Green Phase**: Implement minimum code to make tests pass
 3. **Refactor Phase**: Optimize implementation while maintaining test coverage
 4. **Validation**: Scientific validation against CPU reference
 
 **Test Coverage Requirements:**
+
 - **Unit Tests**: Individual kernel correctness tests
 - **Integration Tests**: End-to-end scanning pipeline validation
 - **Performance Tests**: Throughput benchmarking with statistical analysis
 - **Scientific Tests**: ≥10,000 random validation cases vs bitcoin-core/secp256k1
 
 **Test Framework:**
+
 - **Google Test**: `tests/unit/` - Unit and integration test framework
 - **CUDA Test Fixtures**: `tests/unit/cuda_test_fixture.h` - GPU device management
 - **Validation Tests**: `tests/validation/` - CPU-GPU parity validation
@@ -339,18 +373,21 @@ The project maintains scientific rigor with deterministic, reproducible operatio
 ### Automated Performance Baselines
 
 **Zero-Tolerance Regression Detection:**
+
 - **SHA-256 Protection**: All baseline files cryptographically protected
 - **CI Integration**: Automatic performance regression detection in CI/CD
 - **Baseline Management**: Safe baseline update workflow with explicit approval
 - **Audit Trail**: Complete history of all baseline changes
 
 **Benchmark Execution:**
+
 - **Duration**: 10-minute sustained scanning (600 seconds)
 - **Sampling**: 20 throughput samples (every 30 seconds)
 - **Warm-up**: First 2 samples excluded from statistics
 - **Telemetry**: Real-time GPU utilization and memory bandwidth monitoring
 
 **Key Files:**
+
 - `src/KeyhuntCore/benchmarks/baseline_manager.cpp` - Baseline storage and comparison
 - `src/KeyhuntCore/benchmarks/benchmark_runner.cpp` - Sustained benchmark execution
 - `src/KeyhuntCore/benchmarks/telemetry_collector.cpp` - Real-time performance telemetry
@@ -360,12 +397,14 @@ The project maintains scientific rigor with deterministic, reproducible operatio
 ### Profiling Integration
 
 **Nsight Compute Automation:**
+
 - **Automated Profiling**: `scripts/analyze_profiling.sh` for kernel analysis
 - **Metric Extraction**: Automatic extraction of key performance metrics
 - **Threshold Validation**: Automated checking against performance targets
 - **CI Integration**: Profiling reports uploaded as CI artifacts
 
 **Performance Metrics:**
+
 - **Global Load Efficiency**: ≥90% (memory coalescing)
 - **Bank Conflicts**: ≤5% (shared memory optimization)
 - **Occupancy**: ≥50% (resource utilization)
@@ -374,12 +413,14 @@ The project maintains scientific rigor with deterministic, reproducible operatio
 ### Baseline Files Established
 
 **GPU-Specific Baselines:**
+
 - **RTX 2080 Ti**: `benchmarks/baselines/rtx2080ti.json` (1.0 Gkeys/s)
 - **RTX 3090**: `benchmarks/benchmarks/rtx3090.json` (2.0 Gkeys/s)
 - **H20**: `benchmarks/baselines/h20.json` (3.5 Gkeys/s)
 - **A100**: `benchmarks/baselines/a100.json` (4.0 Gkeys/s)
 
 **CI Workflow Integration:**
+
 - **GitHub Actions**: `.github/workflows/performance-ci.yml`
 - **Self-Hosted Runners**: GPU-equipped runners for performance testing
 - **Zero-Tolerance Enforcement**: Any performance regression blocks merge
@@ -444,6 +485,7 @@ tail -f telemetry/telemetry_rtx3090_*.jsonl
 ### Build Issues
 
 **CUDA Not Found:**
+
 ```bash
 # Check CUDA installation
 nvcc --version
@@ -454,6 +496,7 @@ which nvcc
 ```
 
 **Missing Dependencies:**
+
 ```bash
 # Install libsecp256k1 for validation
 sudo apt-get install libsecp256k1-dev
@@ -465,12 +508,14 @@ cmake --version
 ### Performance Issues
 
 **Low Throughput:**
+
 1. Check GPU utilization: `nvidia-smi`
 2. Run profiling: `./scripts/analyze_profiling.sh 0 eccScalarMulKernel`
 3. Verify memory coalescing efficiency
 4. Check for bank conflicts in shared memory
 
 **CI Failures:**
+
 1. Review GitHub Actions logs for specific failure details
 2. Check baseline files exist for target GPU
 3. Verify performance meets baseline targets
@@ -479,6 +524,7 @@ cmake --version
 ### Memory Issues
 
 **Out of Memory:**
+
 ```bash
 # Check available GPU memory
 nvidia-smi --query-gpu=memory.total,memory.used,memory.free
@@ -488,6 +534,7 @@ watch -n 1 nvidia-smi
 ```
 
 **Memory Leaks:**
+
 ```bash
 # Run CUDA memory check
 cuda-memcheck ./build/Puzzle71Solver

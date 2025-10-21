@@ -1,0 +1,278 @@
+# Puzzle71 CUDA Solver v2.0 - Enhanced Multi-Stage Production Docker Image
+# Optimized multi-stage build for production deployment with security and performance hardening
+
+#==============================================================================
+# BUILD STAGE: CUDA Compiler Environment
+#==============================================================================
+FROM nvidia/cuda:12.1-devel-ubuntu22.04 AS cuda-builder
+
+# Build environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CUDA_ARCHITECTURES=75;86;89;90
+ENV CMAKE_BUILD_TYPE=Release
+ENV PUZZLE71_VERSION=2.0.0
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    # Build tools
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    pkg-config \
+    \
+    # CUDA development
+    cuda-cudart-dev-12-1 \
+    cuda-nvcc-12-1 \
+    \
+    # Cryptographic libraries
+    libssl-dev \
+    libsecp256k1-dev \
+    \
+    # System libraries
+    libjsoncpp-dev \
+    libcurl4-openssl-dev \
+    zlib1g-dev \
+    \
+    # Python for utilities
+    python3 \
+    python3-yaml \
+    python3-jinja2 \
+    \
+    # Clean up
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
+
+# Set working directory
+WORKDIR /opt/puzzle71/build
+
+# Copy source code
+COPY src/ ./src/
+COPY CMakeLists.txt ./
+COPY cmake/ ./cmake/
+COPY config/ ./config/
+
+# Configure build with aggressive optimizations
+RUN cmake ../src/KeyhuntCore \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHITECTURES" \
+    -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+    -DENABLE_AGGRESSIVE_OPTIMIZATIONS=ON \
+    -DBUILD_TESTS=OFF \
+    -DBUILD_BENCHMARKS=OFF \
+    -DCMAKE_INSTALL_PREFIX=/opt/puzzle71 \
+    -G Ninja
+
+# Build application with maximum parallelization
+RUN ninja -j$(nproc) install
+
+#==============================================================================
+# RUNTIME STAGE: Minimal Production Image
+#==============================================================================
+FROM nvidia/cuda:12.1-runtime-ubuntu22.04 AS production
+
+# Metadata
+LABEL maintainer="Puzzle71 Development Team"
+LABEL description="Puzzle71 CUDA Solver v2.0 - Production Optimized"
+LABEL version="2.0.0"
+LABEL license="MIT"
+LABEL documentation="https://github.com/puzzle71/PuzzleKeyhunt/docs"
+LABEL vcs.url="https://github.com/puzzle71/PuzzleKeyhunt.git"
+LABEL vcs.ref="v2.0.0"
+
+# Security-focused environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+ENV PUZZLE71_VERSION=2.0.0
+ENV PUZZLE71_ENV=production
+ENV LOG_LEVEL=INFO
+ENV CUDA_DEVICE_ORDER=PCI_BUS_ID
+ENV CUDA_LAUNCH_BLOCKING=0
+ENV CUDA_MANAGED_FORCE_DEVICE_ALLOC=1
+ENV MALLOC_ARENA_MAX=2
+ENV OMP_NUM_THREADS=4
+
+# Performance and security tuning
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+ENV PATH=/opt/puzzle71/bin:$PATH
+
+# Install only production-critical dependencies
+RUN apt-get update && apt-get install -y \
+    # Minimal runtime dependencies
+    libssl3 \
+    libjsoncpp25 \
+    libcurl4 \
+    libz1 \
+    libsecp256k1-0 \
+    \
+    # Essential utilities
+    ca-certificates \
+    gnupg \
+    curl \
+    jq \
+    wget \
+    \
+    # Process monitoring and debugging
+    htop \
+    procps \
+    strace \
+    \
+    # Security maintenance
+    unattended-upgrades \
+    \
+    # Clean up for minimal attack surface
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/* \
+    && echo "APT::Periodic::Update-Package-Lists \"0\";" > /etc/apt/apt.conf.d/02periodic
+
+# Create non-root puzzle71 user with limited privileges
+RUN groupadd -r puzzle71 \
+    && useradd -r -g puzzle71 -d /opt/puzzle71 -s /sbin/nologin puzzle71 \
+    && mkdir -p /opt/puzzle71/{config,data,results,logs,monitoring,scripts,cache} \
+    && chown -R puzzle71:puzzle71 /opt/puzzle71
+
+# Set working directory
+WORKDIR /opt/puzzle71
+
+# Copy production application binaries from builder stage
+COPY --from=cuda-builder /opt/puzzle71/bin/ ./bin/
+COPY --from=cuda-builder /opt/puzzle71/lib/ ./lib/
+COPY --from=cuda-builder /opt/puzzle71/share/ ./share/
+
+# Copy configuration templates and scripts
+COPY docker/ ./docker/
+COPY scripts/ ./scripts/
+COPY config/ ./config/
+
+# Copy health check script
+COPY docker/production/health_check.sh ./health_check.sh
+RUN chmod +x ./health_check.sh
+
+# Set proper ownership and permissions
+RUN chown -R puzzle71:puzzle71 /opt/puzzle71 \
+    && chmod -R 755 /opt/puzzle71 \
+    && chmod -R 700 /opt/puzzle71/results \
+    && chmod -R 700 /opt/puzzle71/logs \
+    && chmod -R 700 /opt/puzzle71/cache \
+    && chmod +x ./scripts/*.sh
+
+# Create performance-optimized configuration
+RUN cat > ./config/performance.yaml << 'EOF'
+# Puzzle71 Performance Configuration v2.0
+production:
+  gpu:
+    device_id: 0
+    memory_pool_size: "4GB"
+    stream_count: 4
+    block_size: 256
+    grid_size: 0  # Auto-detect
+
+  performance:
+    target_utilization: 95
+    memory_efficiency_target: 90
+    batch_size: 1000000
+    checkpoint_interval: 60  # seconds
+
+  security:
+    enable_monitoring: true
+    log_level: "INFO"
+    max_log_size: "100MB"
+    log_retention_days: 7
+
+  limits:
+    max_memory_usage: "12GB"
+    max_execution_time: 86400  # 24 hours
+    max_results_per_batch: 1000
+EOF
+
+# Switch to non-root user
+USER puzzle71
+
+# Health check configuration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD ./health_check.sh
+
+# Expose monitoring and metrics ports
+EXPOSE 8080 8443
+
+# Volume mounts for persistent data
+VOLUME ["/opt/puzzle71/config", "/opt/puzzle71/data", "/opt/puzzle71/results", "/opt/puzzle71/logs", "/opt/puzzle71/cache"]
+
+# Default production command with configuration
+CMD ["./bin/Puzzle71Solver", "--config", "/opt/puzzle71/config/performance.yaml", "--daemon", "--monitoring-port", "8080"]
+
+#==============================================================================
+# DEVELOPMENT STAGE: Debug and Testing Environment
+#==============================================================================
+FROM production AS development
+
+# Switch back to root for development tools
+USER root
+
+# Install development and debugging tools
+RUN apt-get update && apt-get install -y \
+    # Development tools
+    gdb \
+    valgrind \
+    cuda-gdb \
+    cuda-profiler-api \
+    nsight-systems \
+    \
+    # Testing tools
+    python3-pip \
+    python3-venv \
+    \
+    # Build tools for hot-reloading
+    build-essential \
+    cmake \
+    ninja-build \
+    \
+    && pip3 install --no-cache-dir \
+        pytest \
+        requests \
+        matplotlib \
+        numpy \
+    \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create Python virtual environment for utilities
+RUN python3 -m venv /opt/puzzle71/venv
+ENV PATH="/opt/puzzle71/venv/bin:$PATH"
+
+RUN pip install --no-cache-dir \
+    jupyter \
+    pandas \
+    plotly \
+    seaborn
+
+# Switch back to puzzle71 user for development
+USER puzzle71
+
+# Development command with debugging enabled
+CMD ["./bin/Puzzle71Solver", "--config", "/opt/puzzle71/config/performance.yaml", "--debug", "--log-level", "DEBUG"]
+
+#==============================================================================
+# BENCHMARK STAGE: Performance Testing Environment
+#==============================================================================
+FROM production AS benchmark
+
+# Copy benchmark utilities
+COPY benchmark/ ./benchmark/
+RUN chmod +x ./benchmark/*.sh
+
+# Benchmark-specific environment
+ENV PUZZLE71_BENCHMARK_MODE=true
+ENV BENCHMARK_DURATION=3600  # 1 hour
+ENV BENCHMARK_OUTPUT_DIR="/opt/puzzle71/benchmark_results"
+
+# Create benchmark output directory
+RUN mkdir -p "$BENCHMARK_OUTPUT_DIR"
+
+# Default benchmark command
+CMD ["./benchmark/run_performance_benchmark.sh"]

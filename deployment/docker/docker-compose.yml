@@ -1,0 +1,221 @@
+version: '3.8'
+
+services:
+  puzzle71-solver:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile.production
+    image: puzzle71-solver:2.0.0
+    container_name: puzzle71-solver
+    hostname: puzzle71-solver
+
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # Environment variables
+    environment:
+      - PUZZLE71_VERSION=2.0.0
+      - PUZZLE71_HOME=/opt/puzzle71
+      - PUZZLE71_DATA=/data/puzzle71
+      - PUZZLE71_LOGS=/logs/puzzle71
+      - METRICS_INTERVAL=30
+      - ENABLE_METRICS=true
+      - LOG_LEVEL=INFO
+      - CUDA_VISIBLE_DEVICES=all
+
+    # Volume mounts
+    volumes:
+      - puzzle71_data:/data/puzzle71
+      - puzzle71_logs:/logs/puzzle71
+      - ./config:/opt/puzzle71/config:ro
+
+    # Port mapping (for monitoring endpoints)
+    ports:
+      - "8080:8080"  # Prometheus metrics
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "/opt/puzzle71/scripts/docker-entrypoint.sh", "--health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # Security
+    security_opt:
+      - no-new-privileges:true
+
+    # Resource limits
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      memlock:
+        soft: -1
+        hard: -1
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # Monitoring service (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: puzzle71-prometheus
+    hostname: puzzle71-prometheus
+
+    # Only start if explicitly enabled
+    profiles:
+      - monitoring
+
+    # Configuration
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+
+    # Configuration file
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+    # Port mapping
+    ports:
+      - "9090:9090"
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana dashboard (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: puzzle71-grafana
+    hostname: puzzle71-grafana
+
+    # Only start if explicitly enabled
+    profiles:
+      - monitoring
+
+    # Environment variables
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=puzzle71
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+
+    # Volume mounts
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    # Port mapping
+    ports:
+      - "3000:3000"
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Node Exporter for system metrics (optional)
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: puzzle71-node-exporter
+    hostname: puzzle71-node-exporter
+
+    # Only start if explicitly enabled
+    profiles:
+      - monitoring
+
+    # Command
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+
+    # Volume mounts
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+
+    # Network
+    networks:
+      - puzzle71-network
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Security
+    security_opt:
+      - no-new-privileges:true
+
+# Volume definitions
+volumes:
+  puzzle71_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+
+  puzzle71_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs
+
+  prometheus_data:
+    driver: local
+
+  grafana_data:
+    driver: local
+
+# Network definition
+networks:
+  puzzle71-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

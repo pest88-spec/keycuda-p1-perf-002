@@ -1,6 +1,0 @@
-# Ignore all checkpoint files - they are generated at runtime
-*.json
-*.chk
-
-# Keep documentation only
-!README.md

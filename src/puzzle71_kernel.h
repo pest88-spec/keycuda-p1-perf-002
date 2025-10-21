@@ -27,6 +27,17 @@ cudaError_t LaunchFusedKernel(dim3 grid,
                               int points_per_thread,
                               int compression);
 
+cudaError_t LaunchFixedKernel(
+    dim3 grid,
+    dim3 block,
+    int points_per_thread,
+    int compression,
+    uint32_t deterministic_seed
+);
+
+bool ValidateFixedKernelCompliance();
+std::string GetFixedKernelPerformanceReport();
+
 void EnableRegisterAudit(bool enabled);
 bool IsRegisterAuditEnabled();
 

@@ -1,0 +1,255 @@
+# Puzzle71 Production Configuration v2.0
+# Optimized for production deployment with performance and security hardening
+
+# Metadata
+metadata:
+  version: "2.0.0"
+  environment: "production"
+  deployment_date: "2025-10-20"
+  configuration_schema: "puzzle71-production-v2.0"
+
+# Constitutional v5.5 Compliance Configuration
+deterministic_config:
+  version: "5.5"
+  kernel_launch:
+    grid_dim: 2048
+    block_dim: 512
+    points_per_thread: 16
+    shared_mem_bytes: 98304
+    streams_per_gpu: 4
+
+  rng:
+    algorithm: "xorshift64"
+    base_seed: 0x123456789ABCDEF0
+    derivation: "replay_seed + blockIdx.x * blockDim.x + threadIdx.x"
+
+  memory_layout:
+    scalar_format: "little_endian_u32x8"
+    point_format: "jacobian_projective"
+    alignment_bytes: 16
+
+  gpu_selection:
+    strategy: "static"
+    device_count: 1
+    device_ids: [0]
+
+# Performance Configuration
+performance:
+  # Target performance metrics
+  targets:
+    gpu_utilization_percent: 90
+    memory_efficiency_percent: 95
+    throughput_mkeys_per_second: 1000
+    synchronization_overhead_ms: 50
+
+  # Checkpoint configuration
+  checkpoint:
+    interval_seconds: 1800  # 30 minutes
+    max_size_mb: 100
+    compression_enabled: true
+    backup_count: 5
+
+  # Telemetry and monitoring
+  telemetry:
+    interval_seconds: 1
+    enable_detailed_metrics: true
+    export_prometheus: true
+    metrics_port: 8080
+
+  # Resource limits
+  resource_limits:
+    max_memory_usage_percent: 80
+    max_gpu_memory_mb: 8192
+    max_cpu_cores: 8
+    max_execution_time_hours: 24
+
+# Operator Configuration
+operator:
+  default_id: "production-operator"
+  default_purpose: "bitcoin-puzzle-solving-production"
+  require_explicit: true
+  audit_logging: true
+  session_timeout_minutes: 480
+
+# Digest Configuration
+digest:
+  algorithm: "SHA-256"
+  performance_sla_ms: 250
+  alert_on_violation: true
+  verification_interval_seconds: 300
+  baseline_protection: true
+
+# Security Configuration
+security:
+  # Access control
+  access_control:
+    enable_authentication: false  # Set to true for production with proper auth
+    allowed_hosts: ["localhost", "127.0.0.1"]
+    rate_limiting:
+      enabled: true
+      requests_per_minute: 60
+
+  # Input validation
+  input_validation:
+    max_key_range_size: 1000000
+    max_target_addresses: 1000
+    validate_hex_strings: true
+    sanitize_user_input: true
+
+  # Resource protection
+  resource_protection:
+    enable_process_limits: true
+    max_concurrent_operations: 4
+    memory_sandboxing: true
+    timeout_protection: true
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, FATAL
+  format: "json"  # json, text
+  output:
+    console: false
+    file: true
+    syslog: false
+
+  file_config:
+    path: "/opt/puzzle71/logs/puzzle71.log"
+    max_size_mb: 100
+    backup_count: 10
+    rotation: "daily"
+
+  performance_logging:
+    enable_metrics: true
+    enable_profiling: false
+    log_kernel_launches: false
+    log_memory_operations: true
+
+# GPU Configuration
+gpu:
+  # Device selection and optimization
+  device_selection:
+    preferred_devices: [0]
+    fallback_strategy: "next_available"
+    memory_requirements:
+      min_mb: 4096
+      preferred_mb: 8192
+
+  # Performance tuning
+  performance_tuning:
+    enable_boost: true
+    power_limit_percent: 90
+    temperature_limit_celsius: 80
+    clock_boost_enabled: true
+
+  # Memory management
+  memory_management:
+    allocation_strategy: "unified"
+    preallocation_enabled: true
+    garbage_collection:
+      enabled: true
+      threshold_percent: 80
+      interval_seconds: 300
+
+# Algorithm Configuration
+algorithms:
+  # ECC operations
+  ecc:
+    batch_size: 1024
+    optimization_level: "O3"
+    use_montgomery: true
+    precomputed_tables: true
+
+  # Hash operations
+  hash:
+    algorithm: "sha256d"
+    batch_processing: true
+    vectorization_enabled: true
+    cache_size_mb: 64
+
+  # Address generation
+  address_generation:
+    format: "base58"
+    network: "mainnet"
+    compression: "compressed"
+    validation_enabled: true
+
+# Monitoring and Alerting
+monitoring:
+  # Metrics collection
+  metrics:
+    enable_system_metrics: true
+    enable_gpu_metrics: true
+    enable_application_metrics: true
+    collection_interval_seconds: 5
+
+  # Health checks
+  health_checks:
+    enabled: true
+    interval_seconds: 30
+    timeout_seconds: 10
+    failure_threshold: 3
+
+  # Alerting
+  alerting:
+    enabled: true
+    channels: ["log", "prometheus"]
+    rules:
+      - name: "high_gpu_utilization"
+        threshold: 95
+        operator: "greater_than"
+        duration_seconds: 300
+      - name: "low_throughput"
+        threshold: 500
+        operator: "less_than"
+        duration_seconds: 600
+      - name: "memory_usage_high"
+        threshold: 85
+        operator: "greater_than"
+        duration_seconds: 300
+
+# Data Processing Configuration
+data_processing:
+  # Input data
+  input:
+    private_key_ranges_file: "/opt/puzzle71/data/private_ranges.txt"
+    target_addresses_file: "/opt/puzzle71/data/target_addresses.txt"
+    validation_enabled: true
+
+  # Output data
+  output:
+    results_file: "/opt/puzzle71/results/puzzle71_results.json"
+    format: "json"
+    compression: "gzip"
+    include_metadata: true
+
+  # Processing configuration
+  processing:
+    batch_size: 10000
+    parallel_processing: true
+    checkpoint_interval: 100000
+    progress_reporting: true
+
+# Integration Configuration
+integrations:
+  # Redis configuration
+  redis:
+    enabled: true
+    host: "redis"
+    port: 6379
+    database: 0
+    connection_timeout_seconds: 5
+
+  # Prometheus configuration
+  prometheus:
+    enabled: true
+    endpoint: "/metrics"
+    port: 8080
+    interval_seconds: 15
+
+# Development and Debugging (disabled in production)
+development:
+  debug_mode: false
+  profiling_enabled: false
+  verbose_logging: false
+  mock_gpu_enabled: false
+  test_data_enabled: false

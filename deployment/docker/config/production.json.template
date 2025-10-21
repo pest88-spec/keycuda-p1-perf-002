@@ -1,0 +1,91 @@
+{
+    "version": "2.0.0",
+    "deployment": {
+        "environment": "docker",
+        "containerized": true,
+        "timestamp": "{{DEPLOY_TIMESTAMP}}",
+        "build_type": "Release"
+    },
+    "cuda": {
+        "devices": "all",
+        "architectures": ["75", "86", "89", "90"],
+        "optimization_level": "O3",
+        "separable_compilation": true,
+        "stream_priority": "high"
+    },
+    "performance": {
+        "target_utilization": 95,
+        "memory_efficiency_target": 97,
+        "batch_size": 2000000,
+        "max_threads_per_block": 1024,
+        "grid_optimization": "adaptive"
+    },
+    "validation": {
+        "constitutional_compliance": {
+            "enabled": true,
+            "version": "5.5",
+            "strict_mode": true,
+            "validation_interval": 3600
+        },
+        "deterministic_replay": {
+            "enabled": true,
+            "hash_protection": "sha256",
+            "baseline_validation": true
+        },
+        "ecc_validation": {
+            "enabled": true,
+            "precision_threshold": 1e-10,
+            "reference_implementation": "bitcoin-core/secp256k1"
+        }
+    },
+    "monitoring": {
+        "telemetry": {
+            "enabled": true,
+            "interval_seconds": 30,
+            "metrics_retention_days": 30,
+            "prometheus_enabled": true,
+            "prometheus_port": 8080
+        },
+        "health_checks": {
+            "enabled": true,
+            "interval_seconds": 60,
+            "gpu_health_check": true,
+            "memory_health_check": true,
+            "performance_health_check": true
+        },
+        "alerts": {
+            "enabled": true,
+            "gpu_utilization_threshold": 80,
+            "memory_usage_threshold": 90,
+            "error_rate_threshold": 0.01
+        }
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "/logs/puzzle71/puzzle71.log",
+        "max_size_mb": 100,
+        "backup_count": 5,
+        "console_output": true,
+        "structured_logging": true
+    },
+    "data": {
+        "base_directory": "/data/puzzle71",
+        "checkpoint_directory": "/data/puzzle71/checkpoints",
+        "output_directory": "/data/puzzle71/results",
+        "temporary_directory": "/tmp/puzzle71"
+    },
+    "security": {
+        "input_validation": true,
+        "resource_limits": {
+            "max_memory_gb": 64,
+            "max_threads": 1024
+        },
+        "file_permissions": "600"
+    },
+    "features": {
+        "multi_gpu_support": true,
+        "automatic_load_balancing": true,
+        "checkpoint_resume": true,
+        "performance_profiling": false
+    }
+}

@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puzzle71Solver Performance Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1 class="dashboard-title">
+                ⚡ Puzzle71Solver Dashboard
+            </h1>
+            <div class="dashboard-controls">
+                <button id="theme-toggle" class="btn btn-sm">🌙 Dark</button>
+                <div class="layout-selector">
+                    <select id="layout-selector" class="layout-select">
+                        <option value="default">Default Layout</option>
+                        <option value="monitoring">Monitoring Layout</option>
+                        <option value="optimization">Optimization Layout</option>
+                        <option value="comprehensive">Comprehensive Layout</option>
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" id="auto-refresh-toggle" class="form-check-input" checked>
+                    <label for="auto-refresh-toggle" class="form-check-label">Auto-refresh</label>
+                </div>
+                <button id="refresh-btn" class="btn btn-sm btn-secondary">🔄 Refresh</button>
+                <div id="connection-status" class="status-indicator status-good">Connected</div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="dashboard-nav">
+            <div class="nav-items">
+                <a href="#dashboard" class="nav-item active">Dashboard</a>
+                <a href="#monitoring" class="nav-item">Monitoring</a>
+                <a href="#optimization" class="nav-item">Optimization</a>
+                <a href="#analysis" class="nav-item">Analysis</a>
+                <a href="#settings" class="nav-item">Settings</a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="dashboard-main">
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-label">Device:</span>
+                    <span class="status-value" id="device-name">GPU 0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Status:</span>
+                    <span class="status-value" id="system-status">Running</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Uptime:</span>
+                    <span class="status-value" id="uptime">00:00:00</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label" id="last-refresh">Last updated: --:--:--</span>
+                </div>
+            </div>
+
+            <!-- Widget Grid -->
+            <div class="widget-grid" id="widget-grid">
+                <!-- Throughput Metric Card -->
+                <div class="widget metric-card" id="throughput_card" style="grid-column: span 4; grid-row: span 2;">
+                    <div class="widget-title">GPU Throughput</div>
+                    <div class="metric-value status-normal">0 Kkeys/s</div>
+                    <div class="metric-trend">→ 0%</div>
+                </div>
+
+                <!-- GPU Utilization Gauge -->
+                <div class="widget gauge" id="utilization_gauge" style="grid-column: span 4; grid-row: span 3;">
+                    <div class="widget-title">GPU Utilization</div>
+                    <div class="gauge-container">
+                        <svg width="200" height="120" viewBox="0 0 200 120">
+                            <path d="M 20 100 A 80 80 0 0 1 180 100" stroke="#e9ecef" stroke-width="15" fill="none"/>
+                            <path id="gauge-arc-utilization_gauge" d="M 20 100 A 80 80 0 0 1 180 100" stroke="#007bff" stroke-width="15" fill="none" stroke-dasharray="251 251" stroke-dashoffset="251"/>
+                            <text x="100" y="100" text-anchor="middle" font-size="24" font-weight="bold" id="gauge-value-utilization_gauge">0%</text>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Temperature Gauge -->
+                <div class="widget gauge" id="temperature_gauge" style="grid-column: span 4; grid-row: span 3;">
+                    <div class="widget-title">GPU Temperature</div>
+                    <div class="gauge-container">
+                        <svg width="200" height="120" viewBox="0 0 200 120">
+                            <path d="M 20 100 A 80 80 0 0 1 180 100" stroke="#e9ecef" stroke-width="15" fill="none"/>
+                            <path id="gauge-arc-temperature_gauge" d="M 20 100 A 80 80 0 0 1 180 100" stroke="#007bff" stroke-width="15" fill="none" stroke-dasharray="251 251" stroke-dashoffset="251"/>
+                            <text x="100" y="100" text-anchor="middle" font-size="24" font-weight="bold" id="gauge-value-temperature_gauge">0°C</text>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- System Status Indicator -->
+                <div class="widget status-indicator" id="system_status" style="grid-column: span 4; grid-row: span 2;">
+                    <div class="widget-title">System Status</div>
+                    <div class="status-container">
+                        <div class="status-light status-good"></div>
+                        <div class="status-text">Good</div>
+                    </div>
+                </div>
+
+                <!-- Throughput Time Series -->
+                <div class="widget time-series" id="throughput_chart" style="grid-column: span 8; grid-row: span 4;">
+                    <div class="widget-title">Throughput History</div>
+                    <div class="chart-container">
+                        <canvas id="chart-throughput_chart" width="800" height="300"></canvas>
+                    </div>
+                </div>
+
+                <!-- Memory Usage Gauge -->
+                <div class="widget gauge" id="memory_gauge" style="grid-column: span 4; grid-row: span 3;">
+                    <div class="widget-title">Memory Usage</div>
+                    <div class="gauge-container">
+                        <svg width="200" height="120" viewBox="0 0 200 120">
+                            <path d="M 20 100 A 80 80 0 0 1 180 100" stroke="#e9ecef" stroke-width="15" fill="none"/>
+                            <path id="gauge-arc-memory_gauge" d="M 20 100 A 80 80 0 0 1 180 100" stroke="#007bff" stroke-width="15" fill="none" stroke-dasharray="251 251" stroke-dashoffset="251"/>
+                            <text x="100" y="100" text-anchor="middle" font-size="24" font-weight="bold" id="gauge-value-memory_gauge">0%</text>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Optimization Progress -->
+                <div class="widget metric-card" id="optimization_progress" style="grid-column: span 4; grid-row: span 2;">
+                    <div class="widget-title">Optimization Progress</div>
+                    <div class="metric-value status-normal">0 / 1000</div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: 0%;"></div>
+                        <span class="progress-text">0%</span>
+                    </div>
+                </div>
+
+                <!-- Current Best Objective -->
+                <div class="widget metric-card" id="best_objective" style="grid-column: span 4; grid-row: span 2;">
+                    <div class="widget-title">Best Objective</div>
+                    <div class="metric-value status-normal">0.00</div>
+                    <div class="metric-trend">→ 0%</div>
+                </div>
+
+                <!-- Optimization Time Series -->
+                <div class="widget time-series" id="optimization_chart" style="grid-column: span 4; grid-row: span 4;">
+                    <div class="widget-title">Optimization Progress</div>
+                    <div class="chart-container">
+                        <canvas id="chart-optimization_chart" width="400" height="300"></canvas>
+                    </div>
+                </div>
+
+                <!-- Alert Log -->
+                <div class="widget data-table" id="alert_log" style="grid-column: span 8; grid-row: span 4;">
+                    <div class="widget-title">Recent Alerts</div>
+                    <div class="table-container">
+                        <table class="data-table-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Level</th>
+                                    <th>Message</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alert_log_body">
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--text-muted);">No alerts</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Alert Container -->
+    <div id="alert-container" class="alert-container"></div>
+
+    <!-- Scripts -->
+    <script src="dashboard.js"></script>
+
+    <script>
+        // Widget-specific JavaScript functions
+        function updateGauge_utilization_gauge(value) {
+            const percentage = Math.max(0, Math.min(100, value));
+            const arc = document.getElementById('gauge-arc-utilization_gauge');
+            const text = document.getElementById('gauge-value-utilization_gauge');
+
+            if (arc && text) {
+                const offset = 251 - (percentage / 100) * 251;
+                arc.style.strokeDashoffset = offset;
+                text.textContent = Math.round(percentage) + '%';
+
+                // Update color based on value
+                let color = '#28a745';
+                if (percentage > 90) color = '#dc3545';
+                else if (percentage > 70) color = '#ffc107';
+                arc.style.stroke = color;
+            }
+        }
+
+        function updateGauge_temperature_gauge(value) {
+            const percentage = Math.max(0, Math.min(100, (value / 100) * 100));
+            const arc = document.getElementById('gauge-arc-temperature_gauge');
+            const text = document.getElementById('gauge-value-temperature_gauge');
+
+            if (arc && text) {
+                const offset = 251 - (percentage / 100) * 251;
+                arc.style.strokeDashoffset = offset;
+                text.textContent = Math.round(value) + '°C';
+
+                // Update color based on temperature
+                let color = '#28a745';
+                if (value > 85) color = '#dc3545';
+                else if (value > 70) color = '#ffc107';
+                arc.style.stroke = color;
+            }
+        }
+
+        function updateGauge_memory_gauge(value) {
+            const percentage = Math.max(0, Math.min(100, value));
+            const arc = document.getElementById('gauge-arc-memory_gauge');
+            const text = document.getElementById('gauge-value-memory_gauge');
+
+            if (arc && text) {
+                const offset = 251 - (percentage / 100) * 251;
+                arc.style.strokeDashoffset = offset;
+                text.textContent = Math.round(percentage) + '%';
+
+                // Update color based on memory usage
+                let color = '#28a745';
+                if (percentage > 90) color = '#dc3545';
+                else if (percentage > 75) color = '#ffc107';
+                arc.style.stroke = color;
+            }
+        }
+
+        // Simulate real-time data updates for demonstration
+        function simulateDataUpdates() {
+            // Update throughput
+            const throughputElement = document.querySelector('#throughput_card .metric-value');
+            if (throughputElement) {
+                const baseThroughput = 1500000;
+                const variation = (Math.random() - 0.5) * 200000;
+                const throughput = baseThroughput + variation;
+                throughputElement.textContent = formatThroughput(throughput);
+            }
+
+            // Update utilization gauge
+            updateGauge_utilization_gauge(75 + Math.random() * 20);
+
+            // Update temperature gauge
+            updateGauge_temperature_gauge(65 + Math.random() * 15);
+
+            // Update memory gauge
+            updateGauge_memory_gauge(60 + Math.random() * 20);
+
+            // Update time series charts
+            updateTimeSeriesChart('chart-throughput_chart', generateRandomTimeSeries(20));
+            updateTimeSeriesChart('chart-optimization_chart', generateOptimizationTimeSeries(20));
+
+            // Update status
+            updateSystemStatus();
+        }
+
+        function formatThroughput(value) {
+            if (value >= 1000000000) {
+                return (value / 1000000000).toFixed(2) + ' Gkeys/s';
+            } else if (value >= 1000000) {
+                return (value / 1000000).toFixed(2) + ' Mkeys/s';
+            } else if (value >= 1000) {
+                return (value / 1000).toFixed(2) + ' Kkeys/s';
+            }
+            return value.toFixed(0) + ' keys/s';
+        }
+
+        function generateRandomTimeSeries(points) {
+            const data = [];
+            const now = Date.now();
+
+            for (let i = 0; i < points; i++) {
+                const timestamp = now - (points - i - 1) * 60000; // 1 minute intervals
+                const value = 1500000 + (Math.random() - 0.5) * 400000;
+                data.push({ timestamp, value });
+            }
+
+            return data;
+        }
+
+        function generateOptimizationTimeSeries(points) {
+            const data = [];
+            const now = Date.now();
+
+            for (let i = 0; i < points; i++) {
+                const timestamp = now - (points - i - 1) * 60000;
+                const progress = i / points;
+                const value = 1000000 + progress * 500000 + (Math.random() - 0.5) * 100000;
+                data.push({ timestamp, value });
+            }
+
+            return data;
+        }
+
+        function updateTimeSeriesChart(canvasId, data) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !data || data.length === 0) return;
+
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const padding = 40;
+            const width = canvas.width - 2 * padding;
+            const height = canvas.height - 2 * padding;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Find data range
+            const values = data.map(p => p.value);
+            const minValue = Math.min(...values);
+            const maxValue = Math.max(...values);
+            const valueRange = maxValue - minValue || 1;
+
+            // Draw grid
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color');
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+
+            // Horizontal grid lines
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (i / 5) * height;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+            }
+
+            ctx.setLineDash([]);
+
+            // Draw axes
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary');
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+
+            // Draw data line
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--chart-primary');
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            data.forEach((point, index) => {
+                const x = padding + (index / (data.length - 1)) * width;
+                const y = canvas.height - padding - ((point.value - minValue) / valueRange) * height;
+
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+
+            // Draw data points
+            ctx.fillStyle = ctx.strokeStyle;
+            data.forEach((point, index) => {
+                const x = padding + (index / (data.length - 1)) * width;
+                const y = canvas.height - padding - ((point.value - minValue) / valueRange) * height;
+
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+
+        function updateSystemStatus() {
+            const statusText = document.getElementById('system-status');
+            const statusLight = document.querySelector('.status-indicator .status-light');
+
+            if (statusText && statusLight) {
+                const statuses = ['Good', 'Optimal', 'Running', 'Healthy'];
+                const status = statuses[Math.floor(Math.random() * statuses.length)];
+                statusText.textContent = status;
+
+                // Update status light color
+                statusLight.className = 'status-light status-good';
+            }
+
+            // Update uptime
+            const uptimeElement = document.getElementById('uptime');
+            if (uptimeElement) {
+                const now = new Date();
+                const uptime = new Date(now - Math.random() * 86400000); // Random uptime within 24h
+                const hours = String(uptime.getHours()).padStart(2, '0');
+                const minutes = String(uptime.getMinutes()).padStart(2, '0');
+                const seconds = String(uptime.getSeconds()).padStart(2, '0');
+                uptimeElement.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+        }
+
+        // Add sample alerts
+        function addSampleAlerts() {
+            const alertMessages = [
+                { time: '14:32:15', level: 'info', message: 'Optimization cycle completed', status: 'resolved' },
+                { time: '14:31:45', level: 'warning', message: 'GPU temperature above 80°C', status: 'active' },
+                { time: '14:30:22', level: 'success', message: 'New performance baseline achieved', status: 'resolved' }
+            ];
+
+            const tbody = document.getElementById('alert_log_body');
+            if (tbody) {
+                tbody.innerHTML = '';
+
+                alertMessages.forEach(alert => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${alert.time}</td>
+                        <td><span class="badge badge-${alert.level}">${alert.level}</span></td>
+                        <td>${alert.message}</td>
+                        <td><span class="status-indicator status-${alert.status === 'active' ? 'warning' : 'good'}">${alert.status}</span></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        }
+
+        // Start simulation
+        setInterval(simulateDataUpdates, 2000);
+        setInterval(addSampleAlerts, 10000);
+
+        // Initial updates
+        simulateDataUpdates();
+        addSampleAlerts();
+    </script>
+
+    <style>
+        /* Additional styles for the demo */
+        .status-bar {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+            padding: var(--spacing-sm) var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .status-label {
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .status-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .badge {
+            padding: 2px 8px;
+            border-radius: var(--border-radius-sm);
+            font-size: var(--font-size-xs);
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .badge-info { background-color: var(--info-color); color: white; }
+        .badge-warning { background-color: var(--warning-color); color: black; }
+        .badge-success { background-color: var(--success-color); color: white; }
+        .badge-error { background-color: var(--error-color); color: white; }
+
+        .form-check {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .form-check-input {
+            margin: 0;
+        }
+
+        .form-check-label {
+            font-size: var(--font-size-sm);
+            cursor: pointer;
+        }
+
+        .alert-container {
+            position: fixed;
+            top: var(--spacing-lg);
+            right: var(--spacing-lg);
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .alert {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-sm);
+            box-shadow: 0 4px 12px var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .alert-close {
+            background: none;
+            border: none;
+            font-size: var(--font-size-lg);
+            cursor: pointer;
+            padding: 0;
+            margin-left: var(--spacing-sm);
+            color: var(--text-secondary);
+        }
+
+        .alert-close:hover {
+            color: var(--text-primary);
+        }
+
+        .widget-error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--error-color);
+            border-radius: var(--border-radius-md);
+            padding: var(--spacing-md);
+            text-align: center;
+            z-index: 10;
+        }
+
+        .error-icon {
+            font-size: var(--font-size-xl);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .error-message {
+            color: var(--error-color);
+            font-size: var(--font-size-sm);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .retry-btn {
+            background-color: var(--chart-primary);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            font-size: var(--font-size-xs);
+            cursor: pointer;
+        }
+
+        .retry-btn:hover {
+            background-color: #0056b3;
+        }
+
+        @media (max-width: 768px) {
+            .status-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .alert-container {
+                top: var(--spacing-sm);
+                right: var(--spacing-sm);
+                left: var(--spacing-sm);
+                max-width: none;
+            }
+        }
+    </style>
+</body>
+</html>

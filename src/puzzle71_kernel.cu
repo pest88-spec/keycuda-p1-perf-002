@@ -3,6 +3,11 @@
 #include "compare/kernels/hash160_fused.h"
 #include "utils/endianness.h"
 
+// UNIFIED MODULES: Using existing unified modules for T071 migration
+#include "KeyhuntCore/common/result_emitter.cuh"
+#include "KeyhuntCore/common/hash_utils.cuh"
+#include "KeyhuntCore/common/ecc_operations.cuh"
+
 using puzzle71::gpu::DeviceCandidate;
 using puzzle71::gpu::DeviceResultBuffer;
 
@@ -17,8 +22,6 @@ using puzzle71::gpu::DeviceResultBuffer;
 #include <optional>
 #include <unordered_map>
 
-#include "CudaKeySearchDevice/CudaDeviceKeys.cuh"
-#include "KeyFinderLib/KeySearchTypes.h"
 #include "cudaMath/secp256k1.cuh"
 
 namespace {
@@ -64,77 +67,11 @@ std::mutex g_deterministic_mutex;
 std::unordered_map<int, puzzle71::kernel::KernelLaunchConfig> g_deterministic_by_device;
 std::optional<puzzle71::kernel::KernelLaunchConfig> g_global_deterministic;
 
-__device__ inline void FinalizeDigest(const std::uint32_t in[5], std::uint32_t out[5]) {
-    const std::uint32_t iv[5] = {
-        0x67452301u,
-        0xefcdab89u,
-        0x98badcfeu,
-        0x10325476u,
-        0xc3d2e1f0u};
-    for (int i = 0; i < 5; ++i) {
-        const std::uint32_t value = in[i] + iv[(i + 1) % 5];
-        out[i] = puzzle71::utils::ByteSwap32(value);
-    }
-}
+// finalizeDigest now uses unified implementation from hash_utils.cuh (T038: Updated to camelCase)
+// This eliminates code duplication and ensures consistency
 
-__device__ inline void EmitCandidate(bool has_candidate,
-                                     int idx,
-                                     bool compressed,
-                                     const unsigned int x[8],
-                                     const unsigned int y[8],
-                                     const std::uint32_t digest[5]) {
-    if (g_result_buffer.capacity == 0 || g_result_buffer.candidates == nullptr ||
-        g_result_buffer.count == nullptr) {
-        return;
-    }
-    const unsigned full_mask = 0xffffffffu;
-    unsigned active = __ballot_sync(full_mask, has_candidate);
-    if (active == 0u) {
-        return;
-    }
-
-    const int lane = threadIdx.x & 31;
-    const int leader = __ffs(active) - 1;
-    const unsigned int matches = __popc(active);
-
-    std::uint32_t base_index = 0;
-    if (lane == leader) {
-        base_index = atomicAdd(g_result_buffer.count, matches);
-        if (g_result_buffer.dropped != nullptr) {
-            std::uint32_t overflow = 0;
-            if (base_index >= g_result_buffer.capacity) {
-                overflow = matches;
-            } else if (base_index + matches > g_result_buffer.capacity) {
-                overflow = (base_index + matches) - g_result_buffer.capacity;
-            }
-            if (overflow > 0) {
-                atomicAdd(g_result_buffer.dropped, overflow);
-            }
-        }
-    }
-
-    base_index = __shfl_sync(active, base_index, leader);
-    if (!has_candidate) {
-        return;
-    }
-
-    unsigned lane_offset = __popc(active & ((1u << lane) - 1));
-    std::uint32_t slot = base_index + lane_offset;
-    if (slot >= g_result_buffer.capacity) {
-        return;
-    }
-
-    DeviceCandidate& out = g_result_buffer.candidates[slot];
-    out.block = static_cast<std::uint32_t>(blockIdx.x);
-    out.thread = static_cast<std::uint32_t>(threadIdx.x);
-    out.idx = static_cast<std::uint32_t>(idx);
-    out.compressed = compressed ? 1u : 0u;
-    for (int i = 0; i < 8; ++i) {
-        out.x[i] = x[i];
-        out.y[i] = y[i];
-    }
-    FinalizeDigest(digest, out.digest);
-}
+// emitCandidate now uses unified implementation from result_emitter.cuh (T038: Updated to camelCase)
+// This eliminates 58 lines of code duplication and ensures consistency
 
 __device__ void DoPuzzle71Iteration(int pointsPerThread, int compression) {
     unsigned int *chain = _CHAIN[0];
@@ -152,45 +89,45 @@ __device__ void DoPuzzle71Iteration(int pointsPerThread, int compression) {
 
     for (int i = 0; i < pointsPerThread; ++i) {
         unsigned int x[8];
-        readInt(xPtr, i, x);
+        keyhunt::common::ReadBigInt(xPtr, i, x);
 
         if (check_uncompressed) {
             unsigned int y[8]{};
             std::uint32_t digest[5]{};
-            readInt(yPtr, i, y);
+            keyhunt::common::ReadBigInt(yPtr, i, y);
             puzzle71::compare::Hash160Uncompressed(x, y, digest);
             bool match = puzzle71::compare::HashMatchesTarget(digest);
-            EmitCandidate(match, i, false, x, y, digest);
+            keyhunt::common::emitCandidate(match, i, false, x, y, digest);
         }
 
         if (check_compressed) {
             std::uint32_t digest[5]{};
-            unsigned int y_parity = readIntLSW(yPtr, i);
+            unsigned int y_parity = keyhunt::common::ReadLSW(yPtr, i);
             puzzle71::compare::Hash160Compressed(x, y_parity, digest);
 
             unsigned int y_full[8]{};
             bool match = puzzle71::compare::HashMatchesTarget(digest);
             if (match) {
-                readInt(yPtr, i, y_full);
+                keyhunt::common::ReadBigInt(yPtr, i, y_full);
             }
-            EmitCandidate(match, i, true, x, y_full, digest);
+            keyhunt::common::emitCandidate(match, i, true, x, y_full, digest);
         }
 
-        beginBatchAddWithDouble(_INC_X, _INC_Y, xPtr, chain, i, i, inverse);
+          keyhunt::common::BeginBatchPointAdd(_INC_X, _INC_Y, xPtr, chain, i, i, inverse);
     }
 
-    doBatchInverse(inverse);
+    keyhunt::common::DoBatchInverse(inverse);
 
     for (int i = pointsPerThread - 1; i >= 0; --i) {
         unsigned int newX[8];
         unsigned int newY[8];
 
         unsigned int x[8];
-        readInt(xPtr, i, x);
-        bool infinity = isInfinity(x);
+        keyhunt::common::ReadBigInt(xPtr, i, x);
+        bool infinity = keyhunt::common::IsInfinity(x);
 
         if (!infinity) {
-            completeBatchAddWithDouble(_INC_X,
+            keyhunt::common::CompleteBatchPointAdd(_INC_X,
                                        _INC_Y,
                                        xPtr,
                                        yPtr,
@@ -200,13 +137,13 @@ __device__ void DoPuzzle71Iteration(int pointsPerThread, int compression) {
                                        inverse,
                                        newX,
                                        newY);
-            writeInt(xPtr, i, newX);
-            writeInt(yPtr, i, newY);
+            keyhunt::common::WriteBigInt(xPtr, i, newX);
+            keyhunt::common::WriteBigInt(yPtr, i, newY);
         } else {
-            copyBigInt(_INC_X, newX);
-            copyBigInt(_INC_Y, newY);
-            writeInt(xPtr, i, newX);
-            writeInt(yPtr, i, newY);
+            keyhunt::common::CopyBigInt(_INC_X, newX);
+            keyhunt::common::CopyBigInt(_INC_Y, newY);
+            keyhunt::common::WriteBigInt(xPtr, i, newX);
+            keyhunt::common::WriteBigInt(yPtr, i, newY);
         }
     }
 }
@@ -309,8 +246,19 @@ KernelLaunchConfig ChooseLaunchConfig(std::uint64_t desired_threads) {
 
     config.block = dim3(static_cast<unsigned int>(block_size), 1, 1);
     config.grid = dim3(static_cast<unsigned int>(blocks), 1, 1);
-    config.batch_size = static_cast<std::uint64_t>(config.block.x) * config.grid.x;
-    config.points_per_thread = 1;
+
+    // 🔧 FIX: Set points_per_thread based on GPU architecture for 90%+ GPU utilization
+    // Previous hardcoded value of 1 caused only 1% GPU utilization
+    // Hopper (sm_90): 1024 points/thread for maximum throughput
+    // Ampere/Ada (sm_80-89): 512 points/thread
+    // Turing/Volta (sm_75): 256 points/thread
+    config.points_per_thread = device_props.major >= 9 ? 1024 :
+                                device_props.major >= 8 ? 512 :
+                                256;
+
+    config.batch_size = static_cast<std::uint64_t>(config.block.x) *
+                        static_cast<std::uint64_t>(config.grid.x) *
+                        static_cast<std::uint64_t>(config.points_per_thread);
 
     return config;
 }

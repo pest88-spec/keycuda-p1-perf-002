@@ -13,7 +13,10 @@
 
 #include "ecc_kernel.h"
 #include "cudaMath/secp256k1.cuh"
-#include "CudaKeySearchDevice/CudaDeviceKeys.cuh"
+// UNIFIED MODULES: Replaced legacy CudaKeySearchDevice with unified modules (T071)
+#include "../KeyhuntCore/common/ecc_operations_fixed.cuh"
+#include "../KeyhuntCore/common/legacy_adapter_fixed.cuh"
+#include "../KeyhuntCore/common/ecc_adapter_integration.cuh"
 
 #include <cuda_runtime.h>
 
@@ -58,7 +61,7 @@ __global__ void __launch_bounds__(256) EccKernel(
     // 阶段1: 批量点加法准备（Batch Add Preparation）
     // 使用Montgomery技巧累积所有点的斜率分母
     for (int i = 0; i < pointsPerThread; ++i) {
-        beginBatchAddWithDouble(
+        keyhunt::common::BeginBatchPointAdd(
             _INC_X,      // 增量点X坐标
             _INC_Y,      // 增量点Y坐标
             xPtr,        // 当前点X坐标数组
@@ -72,7 +75,7 @@ __global__ void __launch_bounds__(256) EccKernel(
     // 阶段2: 批量逆元计算（Batch Inverse）
     // 使用Montgomery算法一次性计算所有逆元
     // 这是性能关键路径，O(n)复杂度
-    doBatchInverse(inverse);
+    keyhunt::common::DoBatchInverse(inverse);
     
     // 阶段3: 完成批量点加法（Complete Batch Add）
     // 使用计算好的逆元完成所有点的加法
@@ -87,7 +90,7 @@ __global__ void __launch_bounds__(256) EccKernel(
             unsigned int newX[8];
             unsigned int newY[8];
             
-            completeBatchAddWithDouble(
+            keyhunt::common::CompleteBatchPointAdd(
                 _INC_X,
                 _INC_Y,
                 xPtr,

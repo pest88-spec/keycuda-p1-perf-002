@@ -1,0 +1,84 @@
+# Terraform ignore for Keyhunt-CUDA
+# Exclude files not needed for Terraform deployments
+
+# Git directories
+.git
+.gitignore
+
+# Source code and build artifacts
+src/
+build/
+*.o
+*.so
+*.a
+*.exe
+Puzzle71Solver
+
+# AI and tool directories
+.claude/
+.codex/
+.specify/
+.gemini/
+
+# Documentation
+docs/
+specs/
+*.md
+!README.md
+
+# Logs and data
+logs/
+benchmarks/
+digests/
+telemetry/
+data/
+*.log
+*.dat
+
+# Cache and temp
+__pycache__/
+.*cache*/
+.ipynb_checkpoints/
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*
+testing/
+test_results/
+
+# Backup directories
+*_backup/
+backup/
+scripts_backup/
+
+# Credentials
+*.key
+*.pem
+gha-creds-*.json
+singwarp/
+
+# Docker files
+Dockerfile*
+.dockerignore
+
+# CI/CD files
+.github/
+*.yml
+*.yaml
+
+# Performance data
+*.prof
+*.ncu-rep
+*.nsys-rep
+perf.data

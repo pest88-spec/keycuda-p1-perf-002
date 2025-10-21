@@ -115,27 +115,33 @@ void ClampBatchConfig(BatchConfig& cfg, std::uint64_t keys_limit) {
         }
     }
 
-    std::uint64_t max_points = effective_limit / threads;
-    if (max_points == 0) {
-        max_points = 1;
-    }
-    if (max_points > static_cast<std::uint64_t>(BatchPlanner::kMaxPointsPerThread)) {
-        max_points = BatchPlanner::kMaxPointsPerThread;
-    }
-    if (static_cast<std::uint64_t>(cfg.points_per_thread) > max_points) {
-        cfg.points_per_thread = static_cast<int>(max_points);
-    }
+    // 🔧 FIX: Clamp points_per_thread intelligently to avoid over-restriction
+    // Previous logic was forcing points_per_thread=1 even when limit was very high
+    // New approach: Only reduce points_per_thread if computed total exceeds the actual limit
+
     if (cfg.points_per_thread <= 0) {
-        cfg.points_per_thread = 1;
+        cfg.points_per_thread = 256;  // Default: 256 points/thread for good GPU utilization
+    }
+    if (cfg.points_per_thread > BatchPlanner::kMaxPointsPerThread) {
+        cfg.points_per_thread = BatchPlanner::kMaxPointsPerThread;
     }
 
-    std::uint64_t keys_total = threads * static_cast<std::uint64_t>(cfg.points_per_thread);
-    if (keys_total > effective_limit) {
-        cfg.points_per_thread = static_cast<int>(max_points);
-        keys_total = threads * static_cast<std::uint64_t>(cfg.points_per_thread);
-    }
+    // Calculate what the total would be with current configuration
+    std::uint64_t desired_total = threads * static_cast<std::uint64_t>(cfg.points_per_thread);
 
-    cfg.keys_total = keys_total;
+    // Only reduce points_per_thread if we actually exceed the limit
+    if (desired_total > effective_limit) {
+        // Calculate the maximum points_per_thread that fits within limit
+        int max_points = static_cast<int>(effective_limit / threads);
+        if (max_points < 1) {
+            max_points = 1;  // Ensure at least 1 point per thread
+        }
+        cfg.points_per_thread = max_points;
+        cfg.keys_total = threads * static_cast<std::uint64_t>(cfg.points_per_thread);
+    } else {
+        // We're within the limit, use the desired configuration
+        cfg.keys_total = desired_total;
+    }
 }
 
 BatchPlanner::BatchPlanner(int device_id) : device_id_(device_id) {
@@ -143,6 +149,9 @@ BatchPlanner::BatchPlanner(int device_id) : device_id_(device_id) {
     if (status != cudaSuccess) {
         throw std::runtime_error("cudaGetDeviceProperties failed for planner");
     }
+
+    // T041: Initialize launch configuration manager
+    launch_config_manager_ = std::make_shared<LaunchConfigManager>(device_id_);
 }
 
 void BatchPlanner::SetDeterministicLaunchConfig(const puzzle71::kernel::KernelLaunchConfig& config) {
@@ -291,6 +300,94 @@ BatchConfig BatchPlanner::Plan(const shards::ShardWalker& walker,
         : kMaxKeysPerBatch;
     ClampBatchConfig(config, clamp_limit);
     return config;
+}
+
+// T041: New methods integrating with unified launch configuration system
+
+KernelLaunchConfig BatchPlanner::planWithLaunchConfig(
+    const shards::ShardWalker& walker,
+    KernelType kernel_type,
+    OptimizationObjective objective,
+    std::uint64_t desired_keys_hint
+) const {
+    if (!launch_config_manager_) {
+        throw std::runtime_error("Launch configuration manager not initialized");
+    }
+
+    if (walker.Done()) {
+        return KernelLaunchConfig{};
+    }
+
+    // Calculate available keys in remaining shard
+    core::UInt256 remaining = walker.Remaining();
+    std::uint64_t available_keys = remaining.FitsInUint64() ? remaining.ToUint64() : kMaxKeysPerBatch;
+    std::uint64_t target_keys = std::min(available_keys, desired_keys_hint);
+
+    // Get optimal launch configuration
+    KernelLaunchConfig launch_config = launch_config_manager_->getOptimalConfig(
+        kernel_type, target_keys, objective
+    );
+
+    // Apply deterministic settings if configured
+    if (deterministic_launch_) {
+        launch_config = launch_config_manager_->getDeterministicConfig(
+            launch_config, deterministic_launch_->batch_size
+        );
+    }
+
+    return launch_config;
+}
+
+KernelLaunchConfig BatchPlanner::getSeparatedKernelConfig(
+    const shards::ShardWalker& walker,
+    std::uint64_t desired_keys_hint
+) const {
+    return planWithLaunchConfig(
+        walker,
+        KernelType::SEPARATED_PIPELINE,
+        OptimizationObjective::MAXIMIZE_THROUGHPUT,
+        desired_keys_hint
+    );
+}
+
+void BatchPlanner::setLaunchConfigManager(std::shared_ptr<LaunchConfigManager> manager) {
+    launch_config_manager_ = manager;
+}
+
+LaunchConfigManager* BatchPlanner::getLaunchConfigManager() const {
+    return launch_config_manager_.get();
+}
+
+BatchConfig BatchPlanner::convertToBatchConfig(const KernelLaunchConfig& launch_config) const {
+    BatchConfig batch_config{};
+
+    batch_config.grid = launch_config.grid;
+    batch_config.block = launch_config.block;
+    batch_config.points_per_thread = launch_config.points_per_thread;
+    batch_config.keys_total = launch_config.batch_size;
+
+    // Apply batch limits
+    ClampBatchConfig(batch_config, kMaxKeysPerBatch);
+
+    return batch_config;
+}
+
+KernelLaunchConfig BatchPlanner::convertFromBatchConfig(const BatchConfig& batch_config, KernelType kernel_type) const {
+    if (!launch_config_manager_) {
+        throw std::runtime_error("Launch configuration manager not initialized");
+    }
+
+    KernelLaunchConfig launch_config = launch_config_manager_->getOptimalConfig(
+        kernel_type, batch_config.keys_total, OptimizationObjective::MAXIMIZE_THROUGHPUT
+    );
+
+    // Override with batch config parameters
+    launch_config.grid = batch_config.grid;
+    launch_config.block = batch_config.block;
+    launch_config.points_per_thread = batch_config.points_per_thread;
+    launch_config.batch_size = batch_config.keys_total;
+
+    return launch_config;
 }
 
 }  // namespace puzzle71::gpu

@@ -1,0 +1,150 @@
+# Puzzle71 Static Configuration
+# Version: 5.5
+# Schema Version: 1.0
+# Purpose: Static configuration for deterministic GPU operations
+# Constitutional Compliance: Principle 6 - Static Configuration
+
+config_version: "5.5"
+config_schema_version: "1.0"
+creation_timestamp: 1729468800000  # 2025-10-20T12:00:00Z
+git_commit_hash: "unknown"
+config_checksum: "TBD_COMPUTED_AT_LOAD"
+
+# GPU Device Configurations
+gpu_devices:
+  - device_id: 0
+    device_name: "NVIDIA RTX 2080 Ti"
+    compute_capability:
+      major: 7
+      minor: 5
+    total_memory_bytes: 11576279040  # 11 GB
+    max_threads_per_block: 1024
+    max_blocks_per_sm: 32
+    warp_size: 32
+    max_shared_memory_per_block: 49152  # 48 KB
+    max_registers_per_block: 65536
+    multiprocessor_count: 68
+    max_threads_per_multiprocessor: 2048
+    memory_bandwidth_gbps: 616.0
+    peak_compute_gflops: 13414.0
+    architecture_family: "Turing"
+
+  - device_id: 1
+    device_name: "NVIDIA RTX 3090"
+    compute_capability:
+      major: 8
+      minor: 6
+    total_memory_bytes: 25769803776  # 24 GB
+    max_threads_per_block: 1024
+    max_blocks_per_sm: 16
+    warp_size: 32
+    max_shared_memory_per_block: 49152  # 48 KB
+    max_registers_per_block: 65536
+    multiprocessor_count: 82
+    max_threads_per_multiprocessor: 1536
+    memory_bandwidth_gbps: 936.0
+    peak_compute_gflops: 35581.0
+    architecture_family: "Ampere"
+
+# Kernel Launch Configurations
+kernel_configs:
+  - kernel_name: "ecc_scalar_mul_kernel"
+    architecture_family: "Turing"
+    block_size:
+      x: 128
+      y: 1
+      z: 1
+    min_grid_size: 1024
+    max_grid_size: 65536
+    shared_memory_size_bytes: 8192
+    registers_per_thread: 32
+    expected_occupancy: 0.75
+    launch_bounds:
+      max_threads_per_block: 128
+      min_blocks_per_sm: 8
+
+  - kernel_name: "ecc_scalar_mul_kernel"
+    architecture_family: "Ampere"
+    block_size:
+      x: 256
+      y: 1
+      z: 1
+    min_grid_size: 1024
+    max_grid_size: 65536
+    shared_memory_size_bytes: 16384
+    registers_per_thread: 28
+    expected_occupancy: 0.80
+    launch_bounds:
+      max_threads_per_block: 256
+      min_blocks_per_sm: 6
+
+  - kernel_name: "hash_kernel"
+    architecture_family: "Turing"
+    block_size:
+      x: 256
+      y: 1
+      z: 1
+    min_grid_size: 512
+    max_grid_size: 32768
+    shared_memory_size_bytes: 4096
+    registers_per_thread: 24
+    expected_occupancy: 0.85
+    launch_bounds:
+      max_threads_per_block: 256
+      min_blocks_per_sm: 10
+
+  - kernel_name: "hash_kernel"
+    architecture_family: "Ampere"
+    block_size:
+      x: 512
+      y: 1
+      z: 1
+    min_grid_size: 512
+    max_grid_size: 32768
+    shared_memory_size_bytes: 8192
+    registers_per_thread: 20
+    expected_occupancy: 0.90
+    launch_bounds:
+      max_threads_per_block: 512
+      min_blocks_per_sm: 8
+
+# Performance Configuration
+performance_config:
+  enable_shared_memory_optimization: true
+  enable_warp_level_optimization: true
+  enable_memory_coalescing: true
+  enable_register_optimization: true
+  memory_alignment_bytes: 128
+  shared_memory_bank_size: 4
+  target_gpu_utilization_percent: 90.0
+  target_memory_efficiency_percent: 95.0
+  max_concurrent_kernels: 16
+  optimization_weights:
+    throughput: 0.4
+    memory_efficiency: 0.3
+    compute_efficiency: 0.2
+    power_efficiency: 0.1
+
+# Validation Configuration
+validation_config:
+  enable_deterministic_validation: true
+  enable_cpu_gpu_validation: true
+  enable_performance_regression_detection: true
+  enable_constitutional_compliance: true
+  validation_precision_tolerance: 1.0e-10
+  min_validation_iterations: 10000
+  max_validation_runtime_seconds: 300
+  baseline_storage_directory: "baselines/"
+  enabled_validators:
+    - "ecc_operations"
+    - "deterministic_replay"
+    - "performance_regression"
+    - "constitutional_compliance"
+
+# Metadata
+metadata:
+  generated_by: "Puzzle71 Technical Debt Repair System"
+  purpose: "Static configuration for deterministic GPU operations"
+  constitutional_compliance: "v5.5"
+  deployment_target: "production"
+  last_updated: "2025-10-20T12:00:00Z"
